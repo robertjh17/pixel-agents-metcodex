@@ -16,7 +16,7 @@ import { isRotatable } from './office/layout/furnitureCatalog.js';
 import { EditTool } from './office/types.js';
 import { vscode } from './vscodeApi.js';
 
-// Game state lives outside React — updated imperatively by message handlers
+// Game state lives outside React - updated imperatively by message handlers
 const officeStateRef = { current: null as OfficeState | null };
 const editorState = new EditorState();
 
@@ -124,7 +124,7 @@ function App() {
 
   const isEditDirty = useCallback(
     () => editor.isEditMode && editor.isDirty,
-    [editor.isEditMode, editor.isDirty],
+    [editor.isDirty, editor.isEditMode],
   );
 
   const {
@@ -140,7 +140,6 @@ function App() {
     workspaceFolders,
   } = useExtensionMessages(getOfficeState, editor.setLastSavedLayout, isEditDirty);
 
-  // Show migration notice once layout reset is detected
   const [migrationNoticeDismissed, setMigrationNoticeDismissed] = useState(false);
   const showMigrationNotice = layoutWasReset && !migrationNoticeDismissed;
 
@@ -148,10 +147,7 @@ function App() {
   const [alwaysShowOverlay, setAlwaysShowOverlay] = useState(false);
 
   const handleToggleDebugMode = useCallback(() => setIsDebugMode((prev) => !prev), []);
-  const handleToggleAlwaysShowOverlay = useCallback(
-    () => setAlwaysShowOverlay((prev) => !prev),
-    [],
-  );
+  const handleToggleAlwaysShowOverlay = useCallback(() => setAlwaysShowOverlay((prev) => !prev), []);
 
   const handleSelectAgent = useCallback((id: number) => {
     vscode.postMessage({ type: 'focusAgent', id });
@@ -168,7 +164,7 @@ function App() {
     editor.handleToggleState,
     editor.handleUndo,
     editor.handleRedo,
-    useCallback(() => setEditorTickForKeyboard((n) => n + 1), []),
+    useCallback(() => setEditorTickForKeyboard((tick) => tick + 1), []),
     editor.handleToggleEditMode,
   );
 
@@ -177,27 +173,25 @@ function App() {
   }, []);
 
   const handleClick = useCallback((agentId: number) => {
-    // If clicked agent is a sub-agent, focus the parent's terminal instead
-    const os = getOfficeState();
-    const meta = os.subagentMeta.get(agentId);
+    const officeState = getOfficeState();
+    const meta = officeState.subagentMeta.get(agentId);
     const focusId = meta ? meta.parentAgentId : agentId;
     vscode.postMessage({ type: 'focusAgent', id: focusId });
   }, []);
 
   const officeState = getOfficeState();
-
-  // Force dependency on editorTickForKeyboard to propagate keyboard-triggered re-renders
   void editorTickForKeyboard;
 
-  // Show "Press R to rotate" hint when a rotatable item is selected or being placed
   const showRotateHint =
     editor.isEditMode &&
     (() => {
       if (editorState.selectedFurnitureUid) {
         const item = officeState
           .getLayout()
-          .furniture.find((f) => f.uid === editorState.selectedFurnitureUid);
-        if (item && isRotatable(item.type)) return true;
+          .furniture.find((furniture) => furniture.uid === editorState.selectedFurnitureUid);
+        if (item && isRotatable(item.type)) {
+          return true;
+        }
       }
       if (
         editorState.activeTool === EditTool.FURNITURE_PLACE &&
@@ -258,7 +252,6 @@ function App() {
 
       {!isDebugMode && <ZoomControls zoom={editor.zoom} onZoomChange={editor.handleZoomChange} />}
 
-      {/* Vignette overlay */}
       <div
         style={{
           position: 'absolute',
@@ -271,7 +264,7 @@ function App() {
 
       <BottomToolbar
         isEditMode={editor.isEditMode}
-        onOpenClaude={editor.handleOpenClaude}
+        onOpenAgent={editor.handleOpenAgent}
         onToggleEditMode={editor.handleToggleEditMode}
         isDebugMode={isDebugMode}
         onToggleDebugMode={handleToggleDebugMode}
@@ -309,18 +302,17 @@ function App() {
 
       {editor.isEditMode &&
         (() => {
-          // Compute selected furniture color from current layout
-          const selUid = editorState.selectedFurnitureUid;
-          const selColor = selUid
-            ? (officeState.getLayout().furniture.find((f) => f.uid === selUid)?.color ?? null)
+          const selectedUid = editorState.selectedFurnitureUid;
+          const selectedColor = selectedUid
+            ? (officeState.getLayout().furniture.find((furniture) => furniture.uid === selectedUid)?.color ?? null)
             : null;
           return (
             <EditorToolbar
               activeTool={editorState.activeTool}
               selectedTileType={editorState.selectedTileType}
               selectedFurnitureType={editorState.selectedFurnitureType}
-              selectedFurnitureUid={selUid}
-              selectedFurnitureColor={selColor}
+              selectedFurnitureUid={selectedUid}
+              selectedFurnitureColor={selectedColor}
               floorColor={editorState.floorColor}
               wallColor={editorState.wallColor}
               selectedWallSet={editorState.selectedWallSet}

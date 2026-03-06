@@ -34,7 +34,7 @@
     overflow: hidden;
   }
 
-  /* ── Header ── */
+  /* â”€â”€ Header â”€â”€ */
   header {
     background: var(--bg2);
     border-bottom: 1px solid var(--border);
@@ -92,11 +92,11 @@
   }
   .hdr-stats .sv { color: var(--text); font-weight: 600; }
 
-  /* ── Views ── */
+  /* â”€â”€ Views â”€â”€ */
   .view { display: none; flex: 1; overflow: hidden; }
   .view.active { display: flex; }
 
-  /* ── Drop zone ── */
+  /* â”€â”€ Drop zone â”€â”€ */
   #viewEmpty { align-items: center; justify-content: center; }
   .drop-zone {
     border: 2px dashed var(--border);
@@ -110,7 +110,7 @@
   .drop-zone .btns { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
   .drop-zone.drag-over { border-color: var(--accent); background: rgba(88,166,255,0.05); }
 
-  /* ── Session browser ── */
+  /* â”€â”€ Session browser â”€â”€ */
   .sessions-sidebar {
     width: 320px;
     min-width: 240px;
@@ -216,7 +216,7 @@
     font-size: 14px;
   }
 
-  /* ── Conversation messages ── */
+  /* â”€â”€ Conversation messages â”€â”€ */
   .convo-msg {
     margin-bottom: 16px;
     max-width: 900px;
@@ -328,7 +328,7 @@
     letter-spacing: 1px;
   }
 
-  /* ── Code in conversation ── */
+  /* â”€â”€ Code in conversation â”€â”€ */
   .convo-msg-body pre {
     background: var(--bg);
     border-radius: 4px;
@@ -349,7 +349,7 @@
   }
   .convo-msg-body pre code { background: none; padding: 0; }
 
-  /* ── JSONL Detail view ── */
+  /* â”€â”€ JSONL Detail view â”€â”€ */
   .detail-wrap { display: flex; flex: 1; overflow: hidden; flex-direction: column; }
 
   .filter-bar {
@@ -453,7 +453,7 @@
   .detail-content { flex: 1; overflow-y: auto; padding: 16px 20px; }
   .detail-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-dim); font-size: 14px; }
 
-  /* ── JSON tree ── */
+  /* â”€â”€ JSON tree â”€â”€ */
   .json-tree { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 13px; line-height: 1.6; }
   .json-key { color: #79c0ff; }
   .json-string { color: #a5d6ff; }
@@ -466,7 +466,7 @@
   .json-collapsed { display: none; }
   .json-collapsible { margin-left: 20px; }
 
-  /* ── Parsed/state detail ── */
+  /* â”€â”€ Parsed/state detail â”€â”€ */
   .parsed-section { margin-bottom: 20px; }
   .parsed-section h3 { font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
   .parsed-field { display: flex; gap: 12px; padding: 4px 0; font-size: 13px; }
@@ -493,7 +493,7 @@
   .state-set-empty { color: var(--text-dim); font-style: italic; }
   .state-set-items { color: var(--accent); }
 
-  /* ── Legend ── */
+  /* â”€â”€ Legend â”€â”€ */
   .detail-legend {
     background: var(--bg2);
     border-top: 1px solid var(--border);
@@ -510,7 +510,7 @@
   .resizer { width: 4px; background: var(--border); cursor: col-resize; flex-shrink: 0; }
   .resizer:hover { background: var(--accent); }
 
-  /* ── Scrollbar ── */
+  /* â”€â”€ Scrollbar â”€â”€ */
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -520,19 +520,19 @@
 <body>
 
 <header>
-  <button class="hdr-back" id="backBtn">← Back</button>
+  <button class="hdr-back" id="backBtn">â† Back</button>
   <h1><span>Pixel Agents</span> JSONL Viewer</h1>
   <span class="hdr-path" id="hdrPath"></span>
   <div class="hdr-stats" id="hdrStats"></div>
 </header>
 
-<!-- ─── View: Empty / Drop zone ─── -->
+<!-- â”€â”€â”€ View: Empty / Drop zone â”€â”€â”€ -->
 <div class="view active" id="viewEmpty">
   <div class="drop-zone" id="dropZone">
     <h2>Open a JSONL project folder</h2>
     <p>Load a folder to browse sessions, or a single file to inspect it</p>
     <p style="font-size:11px;color:var(--text-dim);margin-bottom:4px">
-      Sessions live at: <code>~/.claude/projects/&lt;hash&gt;/</code>
+      Sessions live at: <code>~/.claude/projects/&lt;hash&gt;/ or ~/.codex/projects/&lt;hash&gt;/</code>
     </p>
     <div class="btns">
       <button class="hdr-btn primary" id="openFolderBtn">Open Folder</button>
@@ -541,7 +541,7 @@
   </div>
 </div>
 
-<!-- ─── View: Session browser ─── -->
+<!-- â”€â”€â”€ View: Session browser â”€â”€â”€ -->
 <div class="view" id="viewSessions">
   <div class="sessions-sidebar">
     <div class="sessions-sidebar-header">
@@ -554,7 +554,7 @@
     <div class="convo-header" id="convoHeader" style="display:none">
       <span class="convo-header-name" id="convoName"></span>
       <div class="convo-header-spacer"></div>
-      <button class="hdr-btn" id="viewJsonlBtn">View Full JSONL →</button>
+      <button class="hdr-btn" id="viewJsonlBtn">View Full JSONL â†’</button>
     </div>
     <div class="convo-body" id="convoBody">
       <div class="convo-placeholder">Select a session to preview</div>
@@ -562,7 +562,7 @@
   </div>
 </div>
 
-<!-- ─── View: JSONL detail ─── -->
+<!-- â”€â”€â”€ View: JSONL detail â”€â”€â”€ -->
 <div class="view" id="viewDetail">
   <div class="detail-wrap">
     <div class="filter-bar">
@@ -610,18 +610,18 @@
 <input type="file" id="folderInput" webkitdirectory style="display:none">
 
 <script>
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Constants
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const TOOL_DONE_DELAY_MS = 300;
 const PERMISSION_TIMER_DELAY_MS = 7000;
 const TEXT_IDLE_DELAY_MS = 5000;
 const PERMISSION_EXEMPT_TOOLS = new Set(['Task', 'AskUserQuestion']);
 const CONVO_TRUNCATE_HEIGHT = 260; // px before truncation
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  App state
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 let currentView = 'empty'; // 'empty' | 'sessions' | 'detail'
 let sessions = [];          // { name, file?, text, records, conversation, size, lastModified }
 let selectedSessionIdx = -1;
@@ -635,9 +635,9 @@ let activeTab = 'parsed';
 let filters = { assistant: true, user: true, system: true, progress: true, unknown: true };
 let searchQuery = '';
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Elements
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const backBtn = document.getElementById('backBtn');
 const hdrPath = document.getElementById('hdrPath');
 const hdrStats = document.getElementById('hdrStats');
@@ -656,9 +656,9 @@ const detailContent = document.getElementById('detailContent');
 const timelineBar = document.getElementById('timelineBar');
 const searchInput = document.getElementById('searchInput');
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  View management
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function showView(name) {
   currentView = name;
   viewEmpty.classList.toggle('active', name === 'empty');
@@ -679,9 +679,9 @@ backBtn.addEventListener('click', () => {
   }
 });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  File & folder loading
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 document.getElementById('openFolderBtn').addEventListener('click', () => openFolder());
 document.getElementById('openFileBtn').addEventListener('click', () => document.getElementById('fileInput').click());
 document.getElementById('viewJsonlBtn').addEventListener('click', () => openDetailForCurrentSession());
@@ -837,9 +837,9 @@ function loadSingleFile(file) {
   reader.readAsText(file);
 }
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  JSONL parsing
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function parseJsonlText(text) {
   const out = [];
   for (const line of text.split('\n')) {
@@ -851,9 +851,9 @@ function parseJsonlText(text) {
   return out;
 }
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Conversation extraction
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function extractConversation(recs) {
   const messages = [];
   let assistantTexts = [];
@@ -916,9 +916,9 @@ function extractConversation(recs) {
   return messages;
 }
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Session list
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function updateSessionStats() {
   const total = sessions.length;
   sessionCount.textContent = total;
@@ -974,9 +974,9 @@ function selectSession(idx) {
   renderConversation(sessions[idx]);
 }
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Conversation preview
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function renderConversation(session) {
   convoHeader.style.display = '';
   convoName.textContent = session.name;
@@ -1041,7 +1041,7 @@ function renderConversation(session) {
       if (msg.recordIndices?.length > 0) {
         const jumpBtn = document.createElement('button');
         jumpBtn.className = 'convo-jump-btn';
-        jumpBtn.textContent = `JSONL #${msg.recordIndices[0]} →`;
+        jumpBtn.textContent = `JSONL #${msg.recordIndices[0]} â†’`;
         jumpBtn.addEventListener('click', () => {
           openDetailForCurrentSession(msg.recordIndices[0]);
         });
@@ -1054,7 +1054,7 @@ function renderConversation(session) {
       footer.className = 'convo-tools';
       const jumpBtn = document.createElement('button');
       jumpBtn.className = 'convo-jump-btn';
-      jumpBtn.textContent = `JSONL #${msg.recordIndex} →`;
+      jumpBtn.textContent = `JSONL #${msg.recordIndex} â†’`;
       jumpBtn.addEventListener('click', () => {
         openDetailForCurrentSession(msg.recordIndex);
       });
@@ -1070,7 +1070,7 @@ function renderConversation(session) {
 function renderMd(text) {
   // Escape HTML first
   let out = esc(text);
-  // Code blocks: ```lang\ncode\n``` → <pre><code>
+  // Code blocks: ```lang\ncode\n``` â†’ <pre><code>
   out = out.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => `<pre><code>${code}</code></pre>`);
   // Inline code
   out = out.replace(/`([^`\n]+)`/g, '<code>$1</code>');
@@ -1079,9 +1079,9 @@ function renderMd(text) {
   return out;
 }
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Open JSONL detail for current session
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function openDetailForCurrentSession(jumpToRecord) {
   if (selectedSessionIdx < 0) return;
   const session = sessions[selectedSessionIdx];
@@ -1105,9 +1105,9 @@ function openDetailForCurrentSession(jumpToRecord) {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  State Machine Simulation (same as before)
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function processRecords() {
   const state = {
     activeToolIds: new Set(),
@@ -1130,20 +1130,20 @@ function processRecords() {
       return { record, index: idx, events, stateBefore: snapshotBefore, stateAfter: cloneState(state) };
     }
 
-    // New data arrival → cancel timers
-    if (state.waitingTimerActive) { events.push({ type: 'cancel-waiting', reason: 'New JSONL data arrived → cancel waiting timer' }); state.waitingTimerActive = false; }
-    if (state.permissionTimerActive) { events.push({ type: 'cancel-permission', reason: 'New JSONL data arrived → cancel permission timer' }); state.permissionTimerActive = false; }
-    if (state.permissionSent) { events.push({ type: 'clear-permission', reason: 'New JSONL data arrived → clear permission bubble' }); state.permissionSent = false; }
+    // New data arrival â†’ cancel timers
+    if (state.waitingTimerActive) { events.push({ type: 'cancel-waiting', reason: 'New JSONL data arrived â†’ cancel waiting timer' }); state.waitingTimerActive = false; }
+    if (state.permissionTimerActive) { events.push({ type: 'cancel-permission', reason: 'New JSONL data arrived â†’ cancel permission timer' }); state.permissionTimerActive = false; }
+    if (state.permissionSent) { events.push({ type: 'clear-permission', reason: 'New JSONL data arrived â†’ clear permission bubble' }); state.permissionSent = false; }
 
     if (record.type === 'assistant' && Array.isArray(record.message?.content)) {
       const blocks = record.message.content;
       const hasToolUse = blocks.some(b => b.type === 'tool_use');
       if (hasToolUse) {
-        events.push({ type: 'cancel-waiting', reason: 'assistant has tool_use → cancel waiting timer' });
+        events.push({ type: 'cancel-waiting', reason: 'assistant has tool_use â†’ cancel waiting timer' });
         state.waitingTimerActive = false;
         state.isWaiting = false;
         state.hadToolsInTurn = true;
-        events.push({ type: 'active', reason: 'assistant has tool_use → status=active, hadToolsInTurn=true' });
+        events.push({ type: 'active', reason: 'assistant has tool_use â†’ status=active, hadToolsInTurn=true' });
         let hasNonExempt = false;
         for (const block of blocks) {
           if (block.type === 'tool_use' && block.id) {
@@ -1158,11 +1158,11 @@ function processRecords() {
         }
         if (hasNonExempt) {
           state.permissionTimerActive = true;
-          events.push({ type: 'permission-start', reason: `Permission timer started (${PERMISSION_TIMER_DELAY_MS}ms) — non-exempt tool(s) active` });
+          events.push({ type: 'permission-start', reason: `Permission timer started (${PERMISSION_TIMER_DELAY_MS}ms) â€” non-exempt tool(s) active` });
         }
       } else if (blocks.some(b => b.type === 'text') && !state.hadToolsInTurn) {
         state.waitingTimerActive = true;
-        events.push({ type: 'text-idle-start', reason: `Text-only response, no tools this turn → text-idle timer started (${TEXT_IDLE_DELAY_MS}ms)` });
+        events.push({ type: 'text-idle-start', reason: `Text-only response, no tools this turn â†’ text-idle timer started (${TEXT_IDLE_DELAY_MS}ms)` });
       }
     } else if (record.type === 'progress') {
       const parentToolId = record.parentToolUseID;
@@ -1188,7 +1188,7 @@ function processRecords() {
                 events.push({ type: 'subagent-tool-start', toolId: block.id, toolName: tn, parentToolId, reason: `Subagent tool start: ${tn} [${block.id}]` });
               }
             }
-            if (hasNonExemptSub) { state.permissionTimerActive = true; events.push({ type: 'permission-start', reason: 'Permission timer — non-exempt subagent tool(s)' }); }
+            if (hasNonExemptSub) { state.permissionTimerActive = true; events.push({ type: 'permission-start', reason: 'Permission timer â€” non-exempt subagent tool(s)' }); }
           } else if (msg.type === 'user') {
             for (const block of innerContent) {
               if (block.type === 'tool_result' && block.tool_use_id) {
@@ -1212,7 +1212,7 @@ function processRecords() {
               const cid = block.tool_use_id;
               if (state.activeToolNames.get(cid) === 'Task') {
                 state.activeSubagentToolIds.delete(cid); state.activeSubagentToolNames.delete(cid);
-                events.push({ type: 'subagent-clear', toolId: cid, reason: `Task completed → clear subagent` });
+                events.push({ type: 'subagent-clear', toolId: cid, reason: `Task completed â†’ clear subagent` });
               }
               const tn = state.activeToolNames.get(cid);
               state.activeToolIds.delete(cid); state.activeToolStatuses.delete(cid); state.activeToolNames.delete(cid);
@@ -1220,21 +1220,21 @@ function processRecords() {
             }
           }
         } else {
-          events.push({ type: 'new-turn', reason: 'User text prompt → new turn' });
+          events.push({ type: 'new-turn', reason: 'User text prompt â†’ new turn' });
           events.push({ type: 'clear-activity', reason: 'clearAgentActivity' });
           state.waitingTimerActive = false; state.activeToolIds.clear(); state.activeToolStatuses.clear(); state.activeToolNames.clear();
           state.activeSubagentToolIds.clear(); state.activeSubagentToolNames.clear();
           state.isWaiting = false; state.permissionSent = false; state.hadToolsInTurn = false;
         }
       } else if (typeof content === 'string' && content.trim()) {
-        events.push({ type: 'new-turn', reason: 'User text prompt → new turn' });
+        events.push({ type: 'new-turn', reason: 'User text prompt â†’ new turn' });
         events.push({ type: 'clear-activity', reason: 'clearAgentActivity' });
         state.waitingTimerActive = false; state.activeToolIds.clear(); state.activeToolStatuses.clear(); state.activeToolNames.clear();
         state.activeSubagentToolIds.clear(); state.activeSubagentToolNames.clear();
         state.isWaiting = false; state.permissionSent = false; state.hadToolsInTurn = false;
       }
     } else if (record.type === 'system' && record.subtype === 'turn_duration') {
-      events.push({ type: 'turn-end', reason: 'turn_duration → definitive turn end' });
+      events.push({ type: 'turn-end', reason: 'turn_duration â†’ definitive turn end' });
       state.waitingTimerActive = false; state.permissionTimerActive = false;
       if (state.activeToolIds.size > 0) {
         events.push({ type: 'clear-stale-tools', reason: `Clearing ${state.activeToolIds.size} stale tool(s): ${[...state.activeToolNames.values()].join(', ')}` });
@@ -1275,12 +1275,12 @@ function fmtToolStatus(name, input) {
     case 'Read': return `Reading ${base(input.file_path)}`;
     case 'Edit': return `Editing ${base(input.file_path)}`;
     case 'Write': return `Writing ${base(input.file_path)}`;
-    case 'Bash': { const c = input.command || ''; return `Running: ${c.length > 30 ? c.slice(0,30)+'…' : c}`; }
+    case 'Bash': { const c = input.command || ''; return `Running: ${c.length > 30 ? c.slice(0,30)+'â€¦' : c}`; }
     case 'Glob': return 'Searching files';
     case 'Grep': return 'Searching code';
     case 'WebFetch': return 'Fetching web content';
     case 'WebSearch': return 'Searching the web';
-    case 'Task': { const d = typeof input.description === 'string' ? input.description : ''; return d ? `Subtask: ${d.length > 40 ? d.slice(0,40)+'…' : d}` : 'Running subtask'; }
+    case 'Task': { const d = typeof input.description === 'string' ? input.description : ''; return d ? `Subtask: ${d.length > 40 ? d.slice(0,40)+'â€¦' : d}` : 'Running subtask'; }
     case 'AskUserQuestion': return 'Waiting for your answer';
     case 'EnterPlanMode': return 'Planning';
     case 'NotebookEdit': return 'Editing notebook';
@@ -1288,9 +1288,9 @@ function fmtToolStatus(name, input) {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-//  JSONL Detail View — Record list
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  JSONL Detail View â€” Record list
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function getRecordType(r) { return r._parseError ? 'unknown' : (r.type || 'unknown'); }
 function badgeCls(t) { return `badge-${t === 'assistant'||t === 'user'||t === 'system'||t === 'progress' ? t : 'unknown'}`; }
 
@@ -1363,7 +1363,7 @@ function evLabel(e) {
 }
 
 function evIcon(t) {
-  return { 'tool-start':'🔧','tool-done':'✅','turn-end':'🏁','waiting':'⏸','new-turn':'▶','permission-start':'⏱','permission-restart':'🔄','text-idle-start':'💤','active':'⚡','cancel-waiting':'❌','cancel-permission':'❌','clear-permission':'❌','clear-activity':'🧹','clear-stale-tools':'🧹','subagent-tool-start':'🔗','subagent-tool-done':'🔗','subagent-clear':'🔗' }[t] || '•';
+  return { 'tool-start':'ðŸ”§','tool-done':'âœ…','turn-end':'ðŸ','waiting':'â¸','new-turn':'â–¶','permission-start':'â±','permission-restart':'ðŸ”„','text-idle-start':'ðŸ’¤','active':'âš¡','cancel-waiting':'âŒ','cancel-permission':'âŒ','clear-permission':'âŒ','clear-activity':'ðŸ§¹','clear-stale-tools':'ðŸ§¹','subagent-tool-start':'ðŸ”—','subagent-tool-done':'ðŸ”—','subagent-clear':'ðŸ”—' }[t] || 'â€¢';
 }
 
 function renderTimeline() {
@@ -1387,9 +1387,9 @@ function selectRecord(index) {
   renderDetailPanel();
 }
 
-// ══════════════════════════════════════════════════════════════
-//  JSONL Detail View — Detail panel
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  JSONL Detail View â€” Detail panel
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function renderDetailPanel() {
   if (selectedRecordIdx < 0 || selectedRecordIdx >= records.length) {
     detailContent.innerHTML = '<div class="detail-placeholder">Select a record to view details</div>';
@@ -1436,7 +1436,7 @@ function renderStateTab(pr) {
   h += `<div class="state-overlay-detail"><h3>State Before</h3>${stateSnap(pr.stateBefore)}</div>`;
   h += `<div class="state-overlay-detail"><h3>State After</h3>${stateSnap(pr.stateAfter)}</div>`;
   const diff = stateDiff(pr.stateBefore, pr.stateAfter);
-  if (diff.length) h += `<div class="state-overlay-detail"><h3>State Diff</h3><div class="state-snapshot">${diff.map(d=>`<div class="state-field"><span class="state-field-name" style="color:var(--orange)">${esc(d.f)}</span><span>${esc(d.b)} → ${esc(d.a)}</span></div>`).join('')}</div></div>`;
+  if (diff.length) h += `<div class="state-overlay-detail"><h3>State Diff</h3><div class="state-snapshot">${diff.map(d=>`<div class="state-field"><span class="state-field-name" style="color:var(--orange)">${esc(d.f)}</span><span>${esc(d.b)} â†’ ${esc(d.a)}</span></div>`).join('')}</div></div>`;
   detailContent.innerHTML = h;
 }
 
@@ -1463,37 +1463,37 @@ function stateDiff(before, after) {
   return d;
 }
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  JSON tree renderer
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function jsonTree(obj) {
   if (obj === null) return '<span class="json-null">null</span>';
   if (typeof obj === 'boolean') return `<span class="json-boolean">${obj}</span>`;
   if (typeof obj === 'number') return `<span class="json-number">${obj}</span>`;
-  if (typeof obj === 'string') { const e = esc(obj); return `<span class="json-string">"${e.length>500?e.slice(0,500)+'…':e}"</span>`; }
+  if (typeof obj === 'string') { const e = esc(obj); return `<span class="json-string">"${e.length>500?e.slice(0,500)+'â€¦':e}"</span>`; }
   if (Array.isArray(obj)) {
     if (!obj.length) return '<span class="json-bracket">[]</span>';
     const id = 'j'+Math.random().toString(36).slice(2,8);
-    return `<span class="json-toggle" data-target="${id}">▼</span><span class="json-bracket">[</span><div class="json-collapsible" id="${id}">${obj.map((v,i)=>`<div style="margin-left:20px">${jsonTree(v)}${i<obj.length-1?',':''}</div>`).join('')}</div><span class="json-bracket">]</span>`;
+    return `<span class="json-toggle" data-target="${id}">â–¼</span><span class="json-bracket">[</span><div class="json-collapsible" id="${id}">${obj.map((v,i)=>`<div style="margin-left:20px">${jsonTree(v)}${i<obj.length-1?',':''}</div>`).join('')}</div><span class="json-bracket">]</span>`;
   }
   if (typeof obj === 'object') {
     const keys = Object.keys(obj);
     if (!keys.length) return '<span class="json-bracket">{}</span>';
     const id = 'j'+Math.random().toString(36).slice(2,8);
-    return `<span class="json-toggle" data-target="${id}">▼</span><span class="json-bracket">{</span><div class="json-collapsible" id="${id}">${keys.map((k,i)=>`<div style="margin-left:20px"><span class="json-key">"${esc(k)}"</span>: ${jsonTree(obj[k])}${i<keys.length-1?',':''}</div>`).join('')}</div><span class="json-bracket">}</span>`;
+    return `<span class="json-toggle" data-target="${id}">â–¼</span><span class="json-bracket">{</span><div class="json-collapsible" id="${id}">${keys.map((k,i)=>`<div style="margin-left:20px"><span class="json-key">"${esc(k)}"</span>: ${jsonTree(obj[k])}${i<keys.length-1?',':''}</div>`).join('')}</div><span class="json-bracket">}</span>`;
   }
   return esc(String(obj));
 }
 
 function setupToggles() {
   detailContent.querySelectorAll('.json-toggle').forEach(t => {
-    t.addEventListener('click', () => { const el = document.getElementById(t.dataset.target); if (el) { const c = el.classList.toggle('json-collapsed'); t.textContent = c ? '▶' : '▼'; } });
+    t.addEventListener('click', () => { const el = document.getElementById(t.dataset.target); if (el) { const c = el.classList.toggle('json-collapsed'); t.textContent = c ? 'â–¶' : 'â–¼'; } });
   });
 }
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Event listeners
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // Detail tabs
 document.querySelectorAll('.detail-tab').forEach(tab => {
@@ -1540,9 +1540,9 @@ document.addEventListener('mousemove', (e) => {
 });
 document.addEventListener('mouseup', () => { isResizing = false; });
 
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  Helpers
-// ══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function esc(s) { if (typeof s !== 'string') s = String(s??''); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function formatSize(bytes) {
