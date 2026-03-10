@@ -7,6 +7,7 @@ export function clearAgentActivity(
 	agentId: number,
 	permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
 	webview: vscode.Webview | undefined,
+	options?: { status?: 'active' | 'waiting' | 'none' },
 ): void {
 	if (!agent) return;
 	agent.activeToolIds.clear();
@@ -18,7 +19,14 @@ export function clearAgentActivity(
 	agent.permissionSent = false;
 	cancelPermissionTimer(agentId, permissionTimers);
 	webview?.postMessage({ type: 'agentToolsClear', id: agentId });
-	webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'active' });
+	const status = options?.status ?? 'active';
+	if (status === 'active') {
+		console.log(`[Pixel Agents] Agent ${agentId}: sending agentStatus active`);
+		webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'active' });
+	} else if (status === 'waiting') {
+		agent.isWaiting = true;
+		webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'waiting' });
+	}
 }
 
 export function cancelWaitingTimer(

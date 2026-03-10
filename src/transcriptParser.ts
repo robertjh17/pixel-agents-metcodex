@@ -49,28 +49,40 @@ export function processTranscriptLine(
 	waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
 	permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
 	webview: vscode.Webview | undefined,
-): void {
+): { clearPermission: boolean } {
 	const agent = agents.get(agentId);
-	if (!agent) return;
+	if (!agent) {
+		return { clearPermission: false };
+	}
+	const effects = {
+		clearPermission: false,
+	};
 	try {
 		const record = JSON.parse(line);
+		console.log(`[Pixel Agents] Agent ${agentId}: record type="${record.type}" subtype="${record.subtype ?? ''}"`);
 
 		if (record.type === 'assistant' && Array.isArray(record.message?.content)) {
 			processClaudeAssistantRecord(agentId, record, agent, agents, waitingTimers, permissionTimers, webview);
+			effects.clearPermission = true;
 		} else if (record.type === 'progress') {
 			processProgressRecord(agentId, record, agents, waitingTimers, permissionTimers, webview);
+			effects.clearPermission = true;
 		} else if (record.type === 'user') {
 			processClaudeUserRecord(agentId, record, agent, waitingTimers, permissionTimers, webview);
+			effects.clearPermission = true;
 		} else if (record.type === 'system' && record.subtype === 'turn_duration') {
 			markAgentWaiting(agentId, agent, waitingTimers, permissionTimers, webview);
 		} else if (record.type === 'response_item') {
-			processCodexResponseItem(agentId, record, agent, agents, waitingTimers, permissionTimers, webview);
+			const codexEffects = processCodexResponseItem(agentId, record, agent, agents, waitingTimers, permissionTimers, webview);
+			effects.clearPermission = codexEffects.clearPermission;
 		} else if (record.type === 'event_msg') {
-			processCodexEvent(agentId, record, agent, waitingTimers, permissionTimers, webview);
+			const codexEffects = processCodexEvent(agentId, record, agent, agents, waitingTimers, permissionTimers, webview);
+			effects.clearPermission = codexEffects.clearPermission;
 		}
 	} catch {
 		// Ignore malformed lines
 	}
+	return effects;
 }
 
 function processClaudeAssistantRecord(
@@ -184,38 +196,39 @@ function processCodexResponseItem(
 	waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
 	permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
 	webview: vscode.Webview | undefined,
-): void {
+): { clearPermission: boolean } {
 	const payload = record.payload as Record<string, unknown> | undefined;
 	if (!payload) {
-		return;
+		return { clearPermission: false };
 	}
 
 	if (payload.type === 'function_call') {
 		const toolId = typeof payload.call_id === 'string' ? payload.call_id : undefined;
 		if (!toolId) {
-			return;
+			return { clearPermission: false };
 		}
 		const { toolName, input } = getCodexToolDetails(payload);
 		const status = formatToolStatus(toolName, input);
-		cancelWaitingTimer(agentId, waitingTimers);
-		agent.isWaiting = false;
+		markCodexActive(agentId, agent, waitingTimers, webview);
 		agent.hadToolsInTurn = true;
+		agent.codexHasMeaningfulActivity = true;
 		agent.activeToolIds.add(toolId);
 		agent.activeToolStatuses.set(toolId, status);
 		agent.activeToolNames.set(toolId, toolName);
-		webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'active' });
+		console.log(`[Pixel Agents] Agent ${agentId} Codex tool start: ${toolId} ${status}`);
 		webview?.postMessage({ type: 'agentToolStart', id: agentId, toolId, status });
 		if (!PERMISSION_EXEMPT_TOOLS.has(toolName)) {
 			startPermissionTimer(agentId, agents, permissionTimers, PERMISSION_EXEMPT_TOOLS, webview);
 		}
-		return;
+		return { clearPermission: true };
 	}
 
 	if (payload.type === 'function_call_output') {
 		const toolId = typeof payload.call_id === 'string' ? payload.call_id : undefined;
 		if (!toolId) {
-			return;
+			return { clearPermission: false };
 		}
+		console.log(`[Pixel Agents] Agent ${agentId} Codex tool done: ${toolId}`);
 		agent.activeToolIds.delete(toolId);
 		agent.activeToolStatuses.delete(toolId);
 		agent.activeToolNames.delete(toolId);
@@ -224,29 +237,53 @@ function processCodexResponseItem(
 		}, TOOL_DONE_DELAY_MS);
 		if (agent.activeToolIds.size === 0) {
 			agent.hadToolsInTurn = false;
+			startCodexIdleTimer(agentId, agent, agents, waitingTimers, permissionTimers, webview);
 		}
+		return { clearPermission: true };
 	}
+
+	if (
+		payload.type === 'reasoning'
+		|| (payload.type === 'message' && payload.role === 'assistant')
+	) {
+		markCodexActive(agentId, agent, waitingTimers, webview);
+		agent.codexHasMeaningfulActivity = true;
+		startCodexIdleTimer(agentId, agent, agents, waitingTimers, permissionTimers, webview);
+		return { clearPermission: true };
+	}
+
+	if (payload.type === 'message' && payload.role === 'user') {
+		agent.codexHasMeaningfulActivity = false;
+		return { clearPermission: true };
+	}
+
+	return { clearPermission: false };
 }
 
 function processCodexEvent(
 	agentId: number,
 	record: Record<string, unknown>,
 	agent: AgentState,
+	agents: Map<number, AgentState>,
 	waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
 	permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
 	webview: vscode.Webview | undefined,
-): void {
+): { clearPermission: boolean } {
 	const payload = record.payload as Record<string, unknown> | undefined;
 	const eventType = payload?.type;
 	if (eventType === 'task_started' || eventType === 'agent_message') {
-		cancelWaitingTimer(agentId, waitingTimers);
-		agent.isWaiting = false;
-		webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'active' });
-		return;
+		markCodexActive(agentId, agent, waitingTimers, webview);
+		agent.codexHasMeaningfulActivity = true;
+		if (eventType === 'agent_message' && agent.activeToolIds.size === 0) {
+			startCodexIdleTimer(agentId, agent, agents, waitingTimers, permissionTimers, webview);
+		}
+		return { clearPermission: true };
 	}
 	if (eventType === 'task_complete') {
 		markAgentWaiting(agentId, agent, waitingTimers, permissionTimers, webview);
+		return { clearPermission: false };
 	}
+	return { clearPermission: false };
 }
 
 function getCodexToolDetails(payload: Record<string, unknown>): { toolName: string; input: Record<string, unknown> } {
@@ -298,11 +335,38 @@ function markAgentWaiting(
 	agent.isWaiting = true;
 	agent.permissionSent = false;
 	agent.hadToolsInTurn = false;
+	agent.codexHasMeaningfulActivity = false;
 	webview?.postMessage({
 		type: 'agentStatus',
 		id: agentId,
 		status: 'waiting',
 	});
+}
+
+function markCodexActive(
+	agentId: number,
+	agent: AgentState,
+	waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
+	webview: vscode.Webview | undefined,
+): void {
+	cancelWaitingTimer(agentId, waitingTimers);
+	agent.isWaiting = false;
+	webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'active' });
+}
+
+function startCodexIdleTimer(
+	agentId: number,
+	agent: AgentState,
+	agents: Map<number, AgentState>,
+	waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
+	permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
+	webview: vscode.Webview | undefined,
+): void {
+	if (agent.activeToolIds.size > 0 || !agent.codexHasMeaningfulActivity) {
+		return;
+	}
+	startWaitingTimer(agentId, TEXT_IDLE_DELAY_MS, agents, waitingTimers, webview);
+	cancelPermissionTimer(agentId, permissionTimers);
 }
 
 function processProgressRecord(

@@ -339,9 +339,27 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 	const indexPath = vscode.Uri.joinPath(distPath, 'index.html').fsPath;
 
 	let html = fs.readFileSync(indexPath, 'utf-8');
+	let assetsDirName = 'assets';
+	const defaultAssetsDir = path.join(distPath.fsPath, assetsDirName);
+	if (!fs.existsSync(defaultAssetsDir)) {
+		try {
+			const fallbackAssetsDir = fs.readdirSync(distPath.fsPath, { withFileTypes: true })
+				.find(entry => entry.isDirectory() && entry.name.toLowerCase().startsWith('assets ('))?.name;
+			if (fallbackAssetsDir) {
+				assetsDirName = fallbackAssetsDir;
+				console.warn(`[Pixel Agents] Webview assets dir missing; using fallback "${assetsDirName}"`);
+			}
+		} catch {
+			// Ignore; path resolution below will fail naturally if files are absent.
+		}
+	}
 
 	html = html.replace(/(href|src)="\.\/([^"]+)"/g, (_match, attr, filePath) => {
-		const fileUri = vscode.Uri.joinPath(distPath, filePath);
+		const normalizedFilePath = filePath.startsWith('assets/')
+			? `${assetsDirName}/${filePath.slice('assets/'.length)}`
+			: filePath;
+		const segments = normalizedFilePath.split(/[\\/]+/g).filter(Boolean);
+		const fileUri = vscode.Uri.joinPath(distPath, ...segments);
 		const webviewUri = webview.asWebviewUri(fileUri);
 		return `${attr}="${webviewUri}"`;
 	});

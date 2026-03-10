@@ -24,8 +24,20 @@ export function getProjectDirPaths(provider: AgentProviderId, cwd?: string): str
 	const workspacePath = cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 	if (provider === AGENT_PROVIDER_IDS.CODEX) {
 		const sessionDirs = resolveSessionRootDirs(provider).map(rootDir => path.join(rootDir, 'sessions'));
-		console.log(`[Pixel Agents] ${provider} session dirs: ${workspacePath ?? 'none'} -> ${JSON.stringify(sessionDirs)}`);
-		return sessionDirs;
+		const projectHash = workspacePath ? workspacePath.replace(/[^a-zA-Z0-9-]/g, '-') : null;
+		const projectDirs = projectHash
+			? resolveSessionRootDirs(provider).map(rootDir => path.join(rootDir, 'projects', projectHash))
+			: [];
+		const allDirsByNormalized = new Map<string, string>();
+		for (const dir of [...sessionDirs, ...projectDirs]) {
+			const normalized = normalizeJsonlFilePath(dir);
+			if (!allDirsByNormalized.has(normalized)) {
+				allDirsByNormalized.set(normalized, dir);
+			}
+		}
+		const allDirs = [...allDirsByNormalized.values()];
+		console.log(`[Pixel Agents] ${provider} session dirs: ${workspacePath ?? 'none'} -> ${JSON.stringify(allDirs)}`);
+		return allDirs;
 	}
 	if (!workspacePath) {
 		return [];
@@ -105,6 +117,7 @@ export async function launchNewTerminal(
 		isWaiting: false,
 		permissionSent: false,
 		hadToolsInTurn: false,
+		codexHasMeaningfulActivity: false,
 		folderName,
 	};
 
@@ -282,14 +295,18 @@ export function restoreAgents(
 			isWaiting: false,
 			permissionSent: false,
 			hadToolsInTurn: false,
+			codexHasMeaningfulActivity: false,
 			folderName: p.folderName,
 		};
 
 		agents.set(p.id, agent);
+		const hasExistingTranscript = !!(p.jsonlFile && fs.existsSync(p.jsonlFile));
 		if (p.jsonlFile) {
 			knownJsonlFiles.add(normalizeJsonlFilePath(p.jsonlFile));
 		}
-		registerAgentClaims(agent, claimedJsonlFiles, claimedCodexSessions);
+		if (provider !== AGENT_PROVIDER_IDS.CODEX || hasExistingTranscript) {
+			registerAgentClaims(agent, claimedJsonlFiles, claimedCodexSessions);
+		}
 		console.log(`[Pixel Agents] Restored agent ${p.id} -> terminal "${p.terminalName}"`);
 
 		if (p.id > maxId) {
@@ -306,11 +323,11 @@ export function restoreAgents(
 		restoredScans.set(`${provider}:${p.projectDir}`, { provider, projectDir: p.projectDir });
 
 		try {
-			if (fs.existsSync(p.jsonlFile)) {
+			if (hasExistingTranscript) {
 				const stat = fs.statSync(p.jsonlFile);
 				agent.fileOffset = stat.size;
 				startFileWatching(p.id, p.jsonlFile, agents, fileWatchers, pollingTimers, waitingTimers, permissionTimers, webview);
-			} else if (agent.jsonlFile) {
+			} else if (agent.jsonlFile && provider !== AGENT_PROVIDER_IDS.CODEX) {
 				const pollTimer = setInterval(() => {
 					try {
 						if (fs.existsSync(agent.jsonlFile)) {
