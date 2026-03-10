@@ -85,6 +85,19 @@ export interface ToolActivity {
   permissionWait?: boolean;
 }
 
+export const FurnitureType = {
+  // Original hand-drawn sprites (kept for backward compat)
+  DESK: 'desk',
+  BOOKSHELF: 'bookshelf',
+  PLANT: 'plant',
+  COOLER: 'cooler',
+  WHITEBOARD: 'whiteboard',
+  CHAIR: 'chair',
+  SEAT: 'seat',
+  PC: 'pc',
+  LAMP: 'lamp',
+} as const;
+export type FurnitureType = (typeof FurnitureType)[keyof typeof FurnitureType];
 export const EditTool = {
   TILE_PAINT: 'tile_paint',
   WALL_PAINT: 'wall_paint',

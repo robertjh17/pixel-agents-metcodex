@@ -77,7 +77,9 @@ export async function launchNewTerminal(
     name: `${provider.terminalNamePrefix} #${idx}`,
     cwd,
   });
-  terminal.show();
+  // Keep focus in the current UI when spawning an agent terminal.
+  // This avoids triggering unrelated active-terminal handlers from other extensions.
+  terminal.show(true);
 
   const projectDirs = getProjectDirPaths(providerId, cwd);
   if (projectDirs.length === 0) {

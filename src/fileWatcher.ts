@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-
-import { FILE_WATCHER_POLL_INTERVAL_MS, PROJECT_SCAN_INTERVAL_MS } from './constants.js';
+import { FILE_WATCHER_POLL_INTERVAL_MS, PROJECT_SCAN_INTERVAL_MS, CODEX_SESSION_META_READ_MAX_BYTES } from './constants.js';
 import { AGENT_PROVIDER_IDS } from './providers.js';
+import { parseCodexSessionMetaLine, readFirstLineFromFile } from './codexSessionMeta.js';
 import { cancelPermissionTimer, cancelWaitingTimer, clearAgentActivity } from './timerManager.js';
 import { processTranscriptLine } from './transcriptParser.js';
 import type { AgentProviderId } from './providers.js';
@@ -20,6 +20,15 @@ export interface CodexSessionInfo {
   timestamp?: string;
   mtimeMs: number;
 }
+
+type CodexSessionInfoResult =
+  | { kind: 'ok'; info: CodexSessionInfo }
+  | { kind: 'empty' }
+  | { kind: 'incomplete' }
+  | { kind: 'invalid_json' }
+  | { kind: 'not_session_meta' }
+  | { kind: 'missing_fields' }
+  | { kind: 'read_error' };
 
 interface CodexScanSummary {
   scanned: number;
@@ -265,7 +274,8 @@ function attachCodexAgentsToSessions(
 ): number {
   const sessionInfos = files
     .map((file) => getCodexSessionInfo(file))
-    .filter((info): info is CodexSessionInfo => info !== null)
+    .filter((result): result is { kind: 'ok'; info: CodexSessionInfo } => result.kind === 'ok')
+    .map((result) => result.info)
     .sort((a, b) => b.mtimeMs - a.mtimeMs);
 
   if (sessionInfos.length === 0) {
@@ -349,7 +359,10 @@ function attachExistingSessionIfNeeded(
   }
 
   const candidate = findBestCodexCandidate(
-    files.map((file) => getCodexSessionInfo(file)).filter((info): info is CodexSessionInfo => info !== null),
+    files
+      .map((file) => getCodexSessionInfo(file))
+      .filter((result): result is { kind: 'ok'; info: CodexSessionInfo } => result.kind === 'ok')
+      .map((result) => result.info),
     agent,
     claimedJsonlFiles,
     claimedCodexSessions,
@@ -454,24 +467,31 @@ function scanForNewJsonlFiles(
         continue;
       }
       codexSummary.scanned++;
-      const sessionInfo = getCodexSessionInfo(file);
-      if (!sessionInfo) {
+      const sessionInfoResult = getCodexSessionInfo(file);
+      if (sessionInfoResult.kind !== 'ok') {
         codexSummary.skippedNoMeta++;
+        console.log(
+          `[Pixel Agents] Skipping Codex JSONL (${describeCodexSessionInfoFailure(sessionInfoResult.kind)}): ${path.basename(file)}`,
+        );
         continue;
       }
+      const sessionInfo = sessionInfoResult.info;
       codexSummary.parsed++;
+      console.log(`[Pixel Agents] Found Codex JSONL: ${path.basename(sessionInfo.filePath)} (cwd=${sessionInfo.cwd})`);
       if (knownJsonlFiles.has(sessionInfo.normalizedFilePath)) {
         codexSummary.skippedKnown++;
         continue;
       }
       if (claimedJsonlFiles.has(sessionInfo.normalizedFilePath) || claimedCodexSessions.has(sessionInfo.sessionId)) {
         codexSummary.claimed++;
+        console.log(`[Pixel Agents] Skipping Codex JSONL (already claimed): ${path.basename(sessionInfo.filePath)}`);
         knownJsonlFiles.add(sessionInfo.normalizedFilePath);
         continue;
       }
       if (activeAgent?.provider === providerId && activeAgent.workspacePath) {
         if (!matchesWorkspace(activeAgent.workspacePath, sessionInfo.cwd)) {
           codexSummary.skippedWorkspaceMismatch++;
+          console.log(`[Pixel Agents] Skipping Codex JSONL (workspace mismatch): ${path.basename(sessionInfo.filePath)}`);
           continue;
         }
         if (
@@ -480,10 +500,12 @@ function scanForNewJsonlFiles(
           sessionInfo.mtimeMs < activeAgent.launchTimeMs - CODEX_SESSION_MATCH_WINDOW_MS
         ) {
           codexSummary.skippedRecentWindow++;
+          console.log(`[Pixel Agents] Skipping Codex JSONL (outside recent window): ${path.basename(sessionInfo.filePath)}`);
           continue;
         }
       } else if (workspacePaths.length > 0 && !matchesAnyWorkspacePath(workspacePaths, sessionInfo.cwd)) {
         codexSummary.skippedNotInWorkspaceFolders++;
+        console.log(`[Pixel Agents] Skipping Codex JSONL (not in workspace folders): ${path.basename(sessionInfo.filePath)}`);
         continue;
       }
 
@@ -657,36 +679,46 @@ function listJsonlFilesRecursive(rootDir: string): string[] {
   return results;
 }
 
-function getCodexSessionInfo(filePath: string): CodexSessionInfo | null {
+function getCodexSessionInfo(filePath: string): CodexSessionInfoResult {
   try {
-    const fd = fs.openSync(filePath, 'r');
-    const buffer = Buffer.alloc(4096);
-    const bytesRead = fs.readSync(fd, buffer, 0, buffer.length, 0);
-    fs.closeSync(fd);
-    const firstLine = buffer.toString('utf-8', 0, bytesRead).split('\n')[0]?.trim();
-    if (!firstLine) {
-      return null;
-    }
-    const record = JSON.parse(firstLine) as { type?: string; payload?: Record<string, unknown> };
-    if (record.type !== 'session_meta') {
-      return null;
-    }
-    const sessionId = typeof record.payload?.id === 'string' ? record.payload.id : null;
-    const cwd = typeof record.payload?.cwd === 'string' ? record.payload.cwd : null;
-    if (!sessionId || !cwd) {
-      return null;
+    const firstLine = readFirstLineFromFile(filePath, CODEX_SESSION_META_READ_MAX_BYTES);
+    const parsed = parseCodexSessionMetaLine(firstLine.line, firstLine.isComplete);
+    if (parsed.kind !== 'ok') {
+      return parsed;
     }
     return {
-      filePath,
-      normalizedFilePath: normalizeJsonlFilePath(filePath),
-      sessionId,
-      cwd,
-      originator: typeof record.payload?.originator === 'string' ? record.payload.originator : undefined,
-      timestamp: typeof record.payload?.timestamp === 'string' ? record.payload.timestamp : undefined,
-      mtimeMs: safeStatMtimeMs(filePath),
+      kind: 'ok',
+      info: {
+        filePath,
+        normalizedFilePath: normalizeJsonlFilePath(filePath),
+        sessionId: parsed.meta.sessionId,
+        cwd: parsed.meta.cwd,
+        originator: parsed.meta.originator,
+        timestamp: parsed.meta.timestamp,
+        mtimeMs: safeStatMtimeMs(filePath),
+      },
     };
   } catch {
-    return null;
+    return { kind: 'read_error' };
+  }
+}
+
+function describeCodexSessionInfoFailure(kind: CodexSessionInfoResult['kind']): string {
+  switch (kind) {
+    case 'incomplete':
+      return 'incomplete first line';
+    case 'invalid_json':
+      return 'invalid first-line json';
+    case 'not_session_meta':
+      return 'first line is not session_meta';
+    case 'missing_fields':
+      return 'session_meta missing required fields';
+    case 'empty':
+      return 'empty first line';
+    case 'read_error':
+      return 'read error';
+    case 'ok':
+      return 'ok';
   }
 }
 
