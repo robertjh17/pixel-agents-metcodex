@@ -89,6 +89,7 @@ export const FurnitureType = {
   COOLER: 'cooler',
   WHITEBOARD: 'whiteboard',
   CHAIR: 'chair',
+  SEAT: 'seat',
   PC: 'pc',
   LAMP: 'lamp',
 } as const

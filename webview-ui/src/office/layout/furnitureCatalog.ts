@@ -7,6 +7,7 @@ import {
   COOLER_SPRITE,
   WHITEBOARD_SPRITE,
   CHAIR_SPRITE,
+  SEAT_SPRITE,
   PC_SPRITE,
   LAMP_SPRITE,
 } from '../sprites/spriteData.js'
@@ -45,6 +46,7 @@ export const FURNITURE_CATALOG: CatalogEntryWithCategory[] = [
   { type: FurnitureType.COOLER,     label: 'Cooler',     footprintW: 1, footprintH: 1, sprite: COOLER_SPRITE,       isDesk: false, category: 'misc' },
   { type: FurnitureType.WHITEBOARD, label: 'Whiteboard', footprintW: 2, footprintH: 1, sprite: WHITEBOARD_SPRITE,   isDesk: false, category: 'decor' },
   { type: FurnitureType.CHAIR,      label: 'Chair',      footprintW: 1, footprintH: 1, sprite: CHAIR_SPRITE,        isDesk: false, category: 'chairs' },
+  { type: FurnitureType.SEAT,       label: 'Seat',       footprintW: 1, footprintH: 1, sprite: SEAT_SPRITE,         isDesk: false, category: 'chairs' },
   { type: FurnitureType.PC,         label: 'PC',         footprintW: 1, footprintH: 1, sprite: PC_SPRITE,           isDesk: false, category: 'electronics' },
   { type: FurnitureType.LAMP,       label: 'Lamp',       footprintW: 1, footprintH: 1, sprite: LAMP_SPRITE,         isDesk: false, category: 'decor' },
 

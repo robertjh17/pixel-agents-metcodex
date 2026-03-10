@@ -337,6 +337,50 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
 	const distPath = vscode.Uri.joinPath(extensionUri, 'dist', 'webview');
 	const indexPath = vscode.Uri.joinPath(distPath, 'index.html').fsPath;
+	if (!fs.existsSync(indexPath)) {
+		console.error(`[Pixel Agents] Missing webview bundle: ${indexPath}`);
+		const buildCommand = 'npm install && npm --prefix webview-ui install && npm run build';
+		return `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Pixel Agents</title>
+	<style>
+		body {
+			margin: 0;
+			padding: 16px;
+			background: #1e1e2e;
+			color: #f8f8f2;
+			font-family: monospace;
+		}
+		.panel {
+			border: 2px solid #f8f8f2;
+			box-shadow: 2px 2px 0 #0a0a14;
+			padding: 16px;
+			background: #26263a;
+		}
+		code {
+			display: block;
+			margin-top: 12px;
+			padding: 12px;
+			background: #11111b;
+			border: 2px solid #f8f8f2;
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+	</style>
+</head>
+<body>
+	<div class="panel">
+		<strong>Pixel Agents webview bundle is missing.</strong>
+		<p>The extension backend loaded, but <code>${indexPath}</code> was not found.</p>
+		<p>Build the extension and webview, then reload the Extension Development Host:</p>
+		<code>${buildCommand}</code>
+	</div>
+</body>
+</html>`;
+	}
 
 	let html = fs.readFileSync(indexPath, 'utf-8');
 	let assetsDirName = 'assets';

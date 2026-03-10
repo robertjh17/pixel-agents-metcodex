@@ -219,6 +219,32 @@ export const CHAIR_SPRITE: SpriteData = (() => {
   ]
 })()
 
+/** Seat: 16x16 — low-profile stool seat */
+export const SEAT_SPRITE: SpriteData = (() => {
+  const M = '#6B4E0A'
+  const W = '#8B6914'
+  const L = '#B8922E'
+  const D = '#4A3510'
+  return [
+    [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+    [_, _, _, _, _, M, M, M, M, M, M, _, _, _, _, _],
+    [_, _, _, _, M, W, W, W, W, W, W, M, _, _, _, _],
+    [_, _, _, M, W, L, L, L, L, L, L, W, M, _, _, _],
+    [_, _, _, M, W, L, L, L, L, L, L, W, M, _, _, _],
+    [_, _, _, M, W, L, L, L, L, L, L, W, M, _, _, _],
+    [_, _, _, M, W, L, L, L, L, L, L, W, M, _, _, _],
+    [_, _, _, _, M, W, W, W, W, W, W, M, _, _, _, _],
+    [_, _, _, _, _, M, M, M, M, M, M, _, _, _, _, _],
+    [_, _, _, _, _, _, D, D, D, D, _, _, _, _, _, _],
+    [_, _, _, _, _, _, D, _, _, D, _, _, _, _, _, _],
+    [_, _, _, _, _, D, D, _, _, D, D, _, _, _, _, _],
+    [_, _, _, _, _, D, _, _, _, _, D, _, _, _, _, _],
+    [_, _, _, _, D, D, _, _, _, _, D, D, _, _, _, _],
+    [_, _, _, _, D, _, _, _, _, _, _, D, _, _, _, _],
+    [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
+  ]
+})()
+
 /** PC monitor: 16x16 — top-down monitor on stand */
 export const PC_SPRITE: SpriteData = (() => {
   const F = '#555555'
