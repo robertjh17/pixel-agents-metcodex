@@ -40,6 +40,7 @@ function getActivityText(
   }
 
   return 'Idle';
+  return isActive ? 'Working' : 'Idle';
 }
 
 export function ToolOverlay({

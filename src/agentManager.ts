@@ -12,9 +12,9 @@ import {
   startFileWatching,
 } from './fileWatcher.js';
 import { migrateAndLoadLayout } from './layoutPersistence.js';
-import type { AgentProviderId } from './providers.js';
 import { AGENT_PROVIDER_IDS, getAgentProvider, resolveSessionRootDirs } from './providers.js';
 import { cancelPermissionTimer, cancelWaitingTimer } from './timerManager.js';
+import type { AgentProviderId } from './providers.js';
 import type { AgentState, PersistedAgent } from './types.js';
 
 export function getProjectDirPath(provider: AgentProviderId, cwd?: string): string | null {
@@ -25,8 +25,20 @@ export function getProjectDirPaths(provider: AgentProviderId, cwd?: string): str
   const workspacePath = cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (provider === AGENT_PROVIDER_IDS.CODEX) {
     const sessionDirs = resolveSessionRootDirs(provider).map((rootDir) => path.join(rootDir, 'sessions'));
-    console.log(`[Pixel Agents] ${provider} session dirs: ${workspacePath ?? 'none'} -> ${JSON.stringify(sessionDirs)}`);
-    return sessionDirs;
+    const projectHash = workspacePath ? workspacePath.replace(/[^a-zA-Z0-9-]/g, '-') : null;
+    const projectDirs = projectHash
+      ? resolveSessionRootDirs(provider).map((rootDir) => path.join(rootDir, 'projects', projectHash))
+      : [];
+    const allDirsByNormalized = new Map<string, string>();
+    for (const dir of [...sessionDirs, ...projectDirs]) {
+      const normalized = normalizeJsonlFilePath(dir);
+      if (!allDirsByNormalized.has(normalized)) {
+        allDirsByNormalized.set(normalized, dir);
+      }
+    }
+    const allDirs = [...allDirsByNormalized.values()];
+    console.log(`[Pixel Agents] ${provider} session dirs: ${workspacePath ?? 'none'} -> ${JSON.stringify(allDirs)}`);
+    return allDirs;
   }
   if (!workspacePath) {
     return [];
@@ -103,13 +115,13 @@ export async function launchNewTerminal(
     isWaiting: false,
     permissionSent: false,
     hadToolsInTurn: false,
+    codexHasMeaningfulActivity: false,
     folderName,
   };
 
   agents.set(id, agent);
   activeAgentIdRef.current = id;
   persistAgentsFn();
-  console.log(`[Pixel Agents] Agent ${id}: created for terminal ${terminal.name}`);
   webview?.postMessage({ type: 'agentCreated', id, folderName });
 
   for (const projectDir of projectDirs) {
@@ -133,7 +145,6 @@ export async function launchNewTerminal(
   }
 
   if (expectedFiles.length === 0) {
-    console.log(`[Pixel Agents] Agent ${id}: waiting for ${provider.label} transcript via project scan`);
     return;
   }
 
@@ -148,14 +159,13 @@ export async function launchNewTerminal(
       agent.jsonlFile = expectedFiles[matchIndex];
       agent.claimedJsonlFile = normalizeJsonlFilePath(agent.jsonlFile);
       claimedJsonlFiles.set(agent.claimedJsonlFile, id);
-      console.log(`[Pixel Agents] Agent ${id}: found JSONL file ${path.basename(agent.jsonlFile)}`);
       clearInterval(pollTimer);
       jsonlPollTimers.delete(id);
       persistAgentsFn();
       startFileWatching(id, agent.jsonlFile, agents, fileWatchers, pollingTimers, waitingTimers, permissionTimers, webview);
       readNewLines(id, agents, waitingTimers, permissionTimers, webview);
     } catch {
-      /* file may not exist yet */
+      /* ignore */
     }
   }, JSONL_POLL_INTERVAL_MS);
   jsonlPollTimers.set(id, pollTimer);
@@ -282,15 +292,18 @@ export function restoreAgents(
       isWaiting: false,
       permissionSent: false,
       hadToolsInTurn: false,
+      codexHasMeaningfulActivity: false,
       folderName: p.folderName,
     };
 
     agents.set(p.id, agent);
+    const hasExistingTranscript = !!(p.jsonlFile && fs.existsSync(p.jsonlFile));
     if (p.jsonlFile) {
       knownJsonlFiles.add(normalizeJsonlFilePath(p.jsonlFile));
     }
-    registerAgentClaims(agent, claimedJsonlFiles, claimedCodexSessions);
-    console.log(`[Pixel Agents] Restored agent ${p.id} -> terminal "${p.terminalName}"`);
+    if (provider !== AGENT_PROVIDER_IDS.CODEX || hasExistingTranscript) {
+      registerAgentClaims(agent, claimedJsonlFiles, claimedCodexSessions);
+    }
 
     if (p.id > maxId) {
       maxId = p.id;
@@ -306,30 +319,38 @@ export function restoreAgents(
     restoredScans.set(`${provider}:${p.projectDir}`, { provider, projectDir: p.projectDir });
 
     try {
-      if (fs.existsSync(p.jsonlFile)) {
+      if (hasExistingTranscript) {
         const stat = fs.statSync(p.jsonlFile);
         agent.fileOffset = stat.size;
         startFileWatching(p.id, p.jsonlFile, agents, fileWatchers, pollingTimers, waitingTimers, permissionTimers, webview);
-      } else if (agent.jsonlFile) {
+      } else if (agent.jsonlFile && provider !== AGENT_PROVIDER_IDS.CODEX) {
         const pollTimer = setInterval(() => {
           try {
             if (!fs.existsSync(agent.jsonlFile)) {
               return;
             }
-            console.log(`[Pixel Agents] Restored agent ${p.id}: found JSONL file`);
             clearInterval(pollTimer);
             jsonlPollTimers.delete(p.id);
             const stat = fs.statSync(agent.jsonlFile);
             agent.fileOffset = stat.size;
-            startFileWatching(p.id, agent.jsonlFile, agents, fileWatchers, pollingTimers, waitingTimers, permissionTimers, webview);
+            startFileWatching(
+              p.id,
+              agent.jsonlFile,
+              agents,
+              fileWatchers,
+              pollingTimers,
+              waitingTimers,
+              permissionTimers,
+              webview,
+            );
           } catch {
-            /* file may not exist yet */
+            /* ignore */
           }
         }, JSONL_POLL_INTERVAL_MS);
         jsonlPollTimers.set(p.id, pollTimer);
       }
     } catch {
-      /* ignore errors during restore */
+      /* ignore */
     }
   }
 
@@ -371,12 +392,7 @@ export function sendExistingAgents(
   if (!webview) {
     return;
   }
-  const agentIds: number[] = [];
-  for (const id of agents.keys()) {
-    agentIds.push(id);
-  }
-  agentIds.sort((a, b) => a - b);
-
+  const agentIds = [...agents.keys()].sort((a, b) => a - b);
   const agentMeta = context.workspaceState.get<Record<string, { palette?: number; hueShift?: number; seatId?: string }>>(
     WORKSPACE_KEY_AGENT_SEATS,
     {},
@@ -388,7 +404,6 @@ export function sendExistingAgents(
       folderNames[id] = agent.folderName;
     }
   }
-  console.log(`[Pixel Agents] sendExistingAgents: agents=${JSON.stringify(agentIds)}, meta=${JSON.stringify(agentMeta)}`);
 
   webview.postMessage({
     type: 'existingAgents',

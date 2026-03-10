@@ -22,6 +22,7 @@ export interface AgentState {
   isWaiting: boolean;
   permissionSent: boolean;
   hadToolsInTurn: boolean;
+  codexHasMeaningfulActivity: boolean;
   folderName?: string;
 }
 

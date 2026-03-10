@@ -64,30 +64,53 @@ export function processTranscriptLine(
   waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
   permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
   webview: vscode.Webview | undefined,
-): void {
+): { clearPermission: boolean } {
   const agent = agents.get(agentId);
   if (!agent) {
-    return;
+    return { clearPermission: false };
   }
+
+  const effects = { clearPermission: false };
   try {
     const record = JSON.parse(line) as Record<string, unknown>;
 
     if (record.type === 'assistant' && Array.isArray((record.message as { content?: unknown } | undefined)?.content)) {
       processClaudeAssistantRecord(agentId, record, agent, agents, waitingTimers, permissionTimers, webview);
+      effects.clearPermission = true;
     } else if (record.type === 'progress') {
       processProgressRecord(agentId, record, agents, waitingTimers, permissionTimers, webview);
+      effects.clearPermission = true;
     } else if (record.type === 'user') {
       processClaudeUserRecord(agentId, record, agent, waitingTimers, permissionTimers, webview);
+      effects.clearPermission = true;
     } else if (record.type === 'system' && record.subtype === 'turn_duration') {
       markAgentWaiting(agentId, agent, waitingTimers, permissionTimers, webview);
     } else if (record.type === 'response_item') {
-      processCodexResponseItem(agentId, record, agent, agents, waitingTimers, permissionTimers, webview);
+      effects.clearPermission = processCodexResponseItem(
+        agentId,
+        record,
+        agent,
+        agents,
+        waitingTimers,
+        permissionTimers,
+        webview,
+      ).clearPermission;
     } else if (record.type === 'event_msg') {
-      processCodexEvent(agentId, record, agent, waitingTimers, permissionTimers, webview);
+      effects.clearPermission = processCodexEvent(
+        agentId,
+        record,
+        agent,
+        agents,
+        waitingTimers,
+        permissionTimers,
+        webview,
+      ).clearPermission;
     }
   } catch {
     /* ignore malformed lines */
   }
+
+  return effects;
 }
 
 function processClaudeAssistantRecord(
@@ -121,7 +144,6 @@ function processClaudeAssistantRecord(
       }
       const toolName = block.name || '';
       const status = formatToolStatus(toolName, block.input || {});
-      console.log(`[Pixel Agents] Agent ${agentId} tool start: ${block.id} ${status}`);
       agent.activeToolIds.add(block.id);
       agent.activeToolStatuses.set(block.id, status);
       agent.activeToolNames.set(block.id, toolName);
@@ -162,7 +184,6 @@ function processClaudeUserRecord(
         if (block.type !== 'tool_result' || !block.tool_use_id) {
           continue;
         }
-        console.log(`[Pixel Agents] Agent ${agentId} tool done: ${block.tool_use_id}`);
         const completedToolId = block.tool_use_id;
         const completedToolName = agent.activeToolNames.get(completedToolId);
         if (completedToolName === 'Task' || completedToolName === 'Agent') {
@@ -177,12 +198,11 @@ function processClaudeUserRecord(
         agent.activeToolIds.delete(completedToolId);
         agent.activeToolStatuses.delete(completedToolId);
         agent.activeToolNames.delete(completedToolId);
-        const toolId = completedToolId;
         setTimeout(() => {
           webview?.postMessage({
             type: 'agentToolDone',
             id: agentId,
-            toolId,
+            toolId: completedToolId,
           });
         }, TOOL_DONE_DELAY_MS);
       }
@@ -209,37 +229,36 @@ function processCodexResponseItem(
   waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
   permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
   webview: vscode.Webview | undefined,
-): void {
+): { clearPermission: boolean } {
   const payload = record.payload as Record<string, unknown> | undefined;
   if (!payload) {
-    return;
+    return { clearPermission: false };
   }
 
   if (payload.type === 'function_call') {
     const toolId = typeof payload.call_id === 'string' ? payload.call_id : undefined;
     if (!toolId) {
-      return;
+      return { clearPermission: false };
     }
     const { toolName, input } = getCodexToolDetails(payload);
     const status = formatToolStatus(toolName, input);
-    cancelWaitingTimer(agentId, waitingTimers);
-    agent.isWaiting = false;
+    markCodexActive(agentId, agent, waitingTimers, webview);
     agent.hadToolsInTurn = true;
+    agent.codexHasMeaningfulActivity = true;
     agent.activeToolIds.add(toolId);
     agent.activeToolStatuses.set(toolId, status);
     agent.activeToolNames.set(toolId, toolName);
-    webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'active' });
     webview?.postMessage({ type: 'agentToolStart', id: agentId, toolId, status });
     if (!PERMISSION_EXEMPT_TOOLS.has(toolName)) {
       startPermissionTimer(agentId, agents, permissionTimers, PERMISSION_EXEMPT_TOOLS, webview);
     }
-    return;
+    return { clearPermission: true };
   }
 
   if (payload.type === 'function_call_output') {
     const toolId = typeof payload.call_id === 'string' ? payload.call_id : undefined;
     if (!toolId) {
-      return;
+      return { clearPermission: false };
     }
     agent.activeToolIds.delete(toolId);
     agent.activeToolStatuses.delete(toolId);
@@ -249,29 +268,50 @@ function processCodexResponseItem(
     }, TOOL_DONE_DELAY_MS);
     if (agent.activeToolIds.size === 0) {
       agent.hadToolsInTurn = false;
+      startCodexIdleTimer(agentId, agent, agents, waitingTimers, permissionTimers, webview);
     }
+    return { clearPermission: true };
   }
+
+  if (payload.type === 'reasoning' || (payload.type === 'message' && payload.role === 'assistant')) {
+    markCodexActive(agentId, agent, waitingTimers, webview);
+    agent.codexHasMeaningfulActivity = true;
+    startCodexIdleTimer(agentId, agent, agents, waitingTimers, permissionTimers, webview);
+    return { clearPermission: true };
+  }
+
+  if (payload.type === 'message' && payload.role === 'user') {
+    agent.codexHasMeaningfulActivity = false;
+    return { clearPermission: true };
+  }
+
+  return { clearPermission: false };
 }
 
 function processCodexEvent(
   agentId: number,
   record: Record<string, unknown>,
   agent: AgentState,
+  agents: Map<number, AgentState>,
   waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
   permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
   webview: vscode.Webview | undefined,
-): void {
+): { clearPermission: boolean } {
   const payload = record.payload as Record<string, unknown> | undefined;
   const eventType = payload?.type;
   if (eventType === 'task_started' || eventType === 'agent_message') {
-    cancelWaitingTimer(agentId, waitingTimers);
-    agent.isWaiting = false;
-    webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'active' });
-    return;
+    markCodexActive(agentId, agent, waitingTimers, webview);
+    agent.codexHasMeaningfulActivity = true;
+    if (eventType === 'agent_message' && agent.activeToolIds.size === 0) {
+      startCodexIdleTimer(agentId, agent, agents, waitingTimers, permissionTimers, webview);
+    }
+    return { clearPermission: true };
   }
   if (eventType === 'task_complete') {
     markAgentWaiting(agentId, agent, waitingTimers, permissionTimers, webview);
+    return { clearPermission: false };
   }
+  return { clearPermission: false };
 }
 
 function getCodexToolDetails(payload: Record<string, unknown>): { toolName: string; input: Record<string, unknown> } {
@@ -323,11 +363,38 @@ function markAgentWaiting(
   agent.isWaiting = true;
   agent.permissionSent = false;
   agent.hadToolsInTurn = false;
+  agent.codexHasMeaningfulActivity = false;
   webview?.postMessage({
     type: 'agentStatus',
     id: agentId,
     status: 'waiting',
   });
+}
+
+function markCodexActive(
+  agentId: number,
+  agent: AgentState,
+  waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
+  webview: vscode.Webview | undefined,
+): void {
+  cancelWaitingTimer(agentId, waitingTimers);
+  agent.isWaiting = false;
+  webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'active' });
+}
+
+function startCodexIdleTimer(
+  agentId: number,
+  agent: AgentState,
+  agents: Map<number, AgentState>,
+  waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
+  permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
+  webview: vscode.Webview | undefined,
+): void {
+  if (agent.activeToolIds.size > 0 || !agent.codexHasMeaningfulActivity) {
+    return;
+  }
+  startWaitingTimer(agentId, TEXT_IDLE_DELAY_MS, agents, waitingTimers, webview);
+  cancelPermissionTimer(agentId, permissionTimers);
 }
 
 function processProgressRecord(
@@ -386,7 +453,6 @@ function processProgressRecord(
       }
       const toolName = block.name || '';
       const status = formatToolStatus(toolName, block.input || {});
-      console.log(`[Pixel Agents] Agent ${agentId} subagent tool start: ${block.id} ${status} (parent: ${parentToolId})`);
 
       let subTools = agent.activeSubagentToolIds.get(parentToolId);
       if (!subTools) {
@@ -422,7 +488,6 @@ function processProgressRecord(
       if (block.type !== 'tool_result' || !block.tool_use_id) {
         continue;
       }
-      console.log(`[Pixel Agents] Agent ${agentId} subagent tool done: ${block.tool_use_id} (parent: ${parentToolId})`);
 
       const subTools = agent.activeSubagentToolIds.get(parentToolId);
       if (subTools) {

@@ -8,8 +8,11 @@ export function clearAgentActivity(
   agentId: number,
   permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
   webview: vscode.Webview | undefined,
+  options?: { status?: 'active' | 'waiting' | 'none' },
 ): void {
-  if (!agent) return;
+  if (!agent) {
+    return;
+  }
   agent.activeToolIds.clear();
   agent.activeToolStatuses.clear();
   agent.activeToolNames.clear();
@@ -19,7 +22,14 @@ export function clearAgentActivity(
   agent.permissionSent = false;
   cancelPermissionTimer(agentId, permissionTimers);
   webview?.postMessage({ type: 'agentToolsClear', id: agentId });
-  webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'active' });
+
+  const status = options?.status ?? 'active';
+  if (status === 'active') {
+    webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'active' });
+  } else if (status === 'waiting') {
+    agent.isWaiting = true;
+    webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'waiting' });
+  }
 }
 
 export function cancelWaitingTimer(
@@ -78,9 +88,10 @@ export function startPermissionTimer(
   const timer = setTimeout(() => {
     permissionTimers.delete(agentId);
     const agent = agents.get(agentId);
-    if (!agent) return;
+    if (!agent) {
+      return;
+    }
 
-    // Only flag if there are still active non-exempt tools (parent or sub-agent)
     let hasNonExempt = false;
     for (const toolId of agent.activeToolIds) {
       const toolName = agent.activeToolNames.get(toolId);
@@ -90,7 +101,6 @@ export function startPermissionTimer(
       }
     }
 
-    // Check sub-agent tools for non-exempt tools
     const stuckSubagentParentToolIds: string[] = [];
     for (const [parentToolId, subToolNames] of agent.activeSubagentToolNames) {
       for (const [, toolName] of subToolNames) {
@@ -104,12 +114,10 @@ export function startPermissionTimer(
 
     if (hasNonExempt) {
       agent.permissionSent = true;
-      console.log(`[Pixel Agents] Agent ${agentId}: possible permission wait detected`);
       webview?.postMessage({
         type: 'agentToolPermission',
         id: agentId,
       });
-      // Also notify stuck sub-agents
       for (const parentToolId of stuckSubagentParentToolIds) {
         webview?.postMessage({
           type: 'subagentToolPermission',
