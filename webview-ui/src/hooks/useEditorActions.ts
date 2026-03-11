@@ -102,6 +102,23 @@ export function useEditorActions(
     [getOfficeState, editorState, saveLayout],
   );
 
+  const getFurnitureAtTile = useCallback((layout: OfficeLayout, col: number, row: number) => {
+    for (let i = layout.furniture.length - 1; i >= 0; i--) {
+      const item = layout.furniture[i];
+      const entry = getCatalogEntry(item.type);
+      if (!entry) continue;
+      if (
+        col >= item.col &&
+        col < item.col + entry.footprintW &&
+        row >= item.row &&
+        row < item.row + entry.footprintH
+      ) {
+        return item;
+      }
+    }
+    return null;
+  }, []);
+
   const handleOpenClaude = useCallback(() => {
     vscode.postMessage({ type: 'openClaude' });
   }, []);
@@ -561,21 +578,12 @@ export function useEditorActions(
         }
         setEditorTick((n) => n + 1);
       } else if (editorState.activeTool === EditTool.SELECT) {
-        const hit = layout.furniture.find((f) => {
-          const entry = getCatalogEntry(f.type);
-          if (!entry) return false;
-          return (
-            col >= f.col &&
-            col < f.col + entry.footprintW &&
-            row >= f.row &&
-            row < f.row + entry.footprintH
-          );
-        });
+        const hit = getFurnitureAtTile(layout, col, row);
         editorState.selectedFurnitureUid = hit ? hit.uid : null;
         setEditorTick((n) => n + 1);
       }
     },
-    [getOfficeState, editorState, applyEdit, maybeExpand],
+    [getOfficeState, editorState, applyEdit, maybeExpand, getFurnitureAtTile],
   );
 
   const handleEditorEraseAction = useCallback(
@@ -583,15 +591,25 @@ export function useEditorActions(
       const os = getOfficeState();
       const layout = os.getLayout();
       if (col < 0 || col >= layout.cols || row < 0 || row >= layout.rows) return;
-      const idx = row * layout.cols + col;
-      // Only erase non-VOID tiles
-      if (layout.tiles[idx] === TileType.VOID) return;
-      const newLayout = paintTile(layout, col, row, TileType.VOID);
+      const hit = getFurnitureAtTile(layout, col, row);
+      let newLayout = layout;
+      if (hit) {
+        newLayout = removeFurniture(layout, hit.uid);
+        if (editorState.selectedFurnitureUid === hit.uid) {
+          editorState.clearSelection();
+          colorEditUidRef.current = null;
+        }
+      } else {
+        const idx = row * layout.cols + col;
+        // Only erase non-VOID tiles
+        if (layout.tiles[idx] === TileType.VOID) return;
+        newLayout = paintTile(layout, col, row, TileType.VOID);
+      }
       if (newLayout !== layout) {
         applyEdit(newLayout);
       }
     },
-    [getOfficeState, applyEdit],
+    [getOfficeState, applyEdit, editorState, getFurnitureAtTile],
   );
 
   return {
