@@ -115,9 +115,14 @@ export async function launchNewTerminal(
     activeSubagentToolIds: new Map(),
     activeSubagentToolNames: new Map(),
     isWaiting: false,
+    currentStatus: 'none',
     permissionSent: false,
     hadToolsInTurn: false,
     codexHasMeaningfulActivity: false,
+    copilotActiveParentToolIds: new Set(),
+    copilotActiveChildToolIdsByParent: new Map(),
+    copilotSubagents: new Map(),
+    copilotLastAssistantActivityAt: 0,
     folderName,
   };
 
@@ -292,9 +297,14 @@ export function restoreAgents(
       activeSubagentToolIds: new Map(),
       activeSubagentToolNames: new Map(),
       isWaiting: false,
+      currentStatus: 'none',
       permissionSent: false,
       hadToolsInTurn: false,
       codexHasMeaningfulActivity: false,
+      copilotActiveParentToolIds: new Set(),
+      copilotActiveChildToolIdsByParent: new Map(),
+      copilotSubagents: new Map(),
+      copilotLastAssistantActivityAt: 0,
       folderName: p.folderName,
     };
 
@@ -438,6 +448,26 @@ export function sendCurrentAgentStatuses(
         type: 'agentStatus',
         id: agentId,
         status: 'waiting',
+      });
+    }
+  }
+  if (!webview) {
+    return;
+  }
+  for (const [agentId, agent] of agents) {
+    for (const [toolId, status] of agent.activeToolStatuses) {
+      webview.postMessage({
+        type: 'agentToolStart',
+        id: agentId,
+        toolId,
+        status,
+      });
+    }
+    if (agent.currentStatus === 'waiting' || agent.currentStatus === 'needsInput') {
+      webview.postMessage({
+        type: 'agentStatus',
+        id: agentId,
+        status: agent.currentStatus,
       });
     }
   }

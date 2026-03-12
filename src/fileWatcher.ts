@@ -21,6 +21,15 @@ export interface CodexSessionInfo {
   mtimeMs: number;
 }
 
+export interface CopilotSessionInfo {
+	filePath: string;
+	normalizedFilePath: string;
+	sessionId: string;
+	cwd: string;
+	gitRoot?: string;
+	mtimeMs: number;
+}
+
 type CodexSessionInfoResult =
   | { kind: 'ok'; info: CodexSessionInfo }
   | { kind: 'empty' }
@@ -28,6 +37,13 @@ type CodexSessionInfoResult =
   | { kind: 'invalid_json' }
   | { kind: 'not_session_meta' }
   | { kind: 'missing_fields' }
+  | { kind: 'read_error' };
+
+type CopilotSessionInfoResult =
+  | { kind: 'ok'; info: CopilotSessionInfo }
+  | { kind: 'missing_workspace_yaml' }
+  | { kind: 'missing_fields' }
+  | { kind: 'invalid_events_path' }
   | { kind: 'read_error' };
 
 interface CodexScanSummary {
@@ -216,6 +232,21 @@ export function ensureProjectScan(
         webview,
         persistAgents,
       );
+    } else if (providerId === AGENT_PROVIDER_IDS.COPILOT) {
+      attachCopilotAgentsToSessions(
+        projectDir,
+        initialFiles,
+        activeAgentIdRef,
+        agents,
+        claimedJsonlFiles,
+        claimedCodexSessions,
+        fileWatchers,
+        pollingTimers,
+        waitingTimers,
+        permissionTimers,
+        webview,
+        persistAgents,
+      );
     } else {
       attachExistingSessionIfNeeded(
         providerId,
@@ -283,7 +314,7 @@ function attachCodexAgentsToSessions(
   }
 
   const candidateAgents = [...agents.values()]
-    .filter((agent) => needsCodexSessionAttachment(agent))
+    .filter((agent) => needsProviderSessionAttachment(agent, AGENT_PROVIDER_IDS.CODEX))
     .sort((left, right) => {
       if (left.id === activeAgentIdRef.current) {
         return -1;
@@ -335,6 +366,79 @@ function attachCodexAgentsToSessions(
   return attachedCount;
 }
 
+function attachCopilotAgentsToSessions(
+	projectDir: string,
+	files: string[],
+	activeAgentIdRef: { current: number | null },
+	agents: Map<number, AgentState>,
+	claimedJsonlFiles: Map<string, number>,
+	claimedCodexSessions: Map<string, number>,
+	fileWatchers: Map<number, fs.FSWatcher>,
+	pollingTimers: Map<number, ReturnType<typeof setInterval>>,
+	waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
+	permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
+	webview: vscode.Webview | undefined,
+	persistAgents: () => void,
+): number {
+	const sessionInfos = files
+		.map(file => getCopilotSessionInfo(file))
+		.filter((result): result is { kind: 'ok'; info: CopilotSessionInfo } => result.kind === 'ok')
+		.map(result => result.info)
+		.sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+	if (sessionInfos.length === 0) {
+		return 0;
+	}
+
+	const candidateAgents = [...agents.values()]
+		.filter(agent => needsProviderSessionAttachment(agent, AGENT_PROVIDER_IDS.COPILOT))
+		.sort((left, right) => {
+			if (left.id === activeAgentIdRef.current) {
+				return -1;
+			}
+			if (right.id === activeAgentIdRef.current) {
+				return 1;
+			}
+			return right.id - left.id;
+		});
+	let attachedCount = 0;
+
+	for (const agent of candidateAgents) {
+		const candidate = findBestCopilotCandidate(
+			sessionInfos,
+			agent,
+			claimedJsonlFiles,
+			agent.launchTimeMs !== undefined && !agent.claimedJsonlFile,
+		);
+		if (!candidate) {
+			continue;
+		}
+
+		console.log(`[Pixel Agents] Attaching Copilot agent ${agent.id} to ${path.basename(candidate.filePath)} (${candidate.sessionId})`);
+		reassignAgentToFile(
+			agent.id,
+			candidate.filePath,
+			agents,
+			claimedJsonlFiles,
+			claimedCodexSessions,
+			fileWatchers,
+			pollingTimers,
+			waitingTimers,
+			permissionTimers,
+			webview,
+			persistAgents,
+			candidate,
+		);
+		const updatedAgent = agents.get(agent.id);
+		if (updatedAgent) {
+			updatedAgent.projectDir = projectDir;
+		}
+		attachedCount++;
+	}
+
+	return attachedCount;
+}
+
 function attachExistingSessionIfNeeded(
   providerId: AgentProviderId,
   projectDir: string,
@@ -350,11 +454,47 @@ function attachExistingSessionIfNeeded(
   webview: vscode.Webview | undefined,
   persistAgents: () => void,
 ): void {
-  if (providerId !== AGENT_PROVIDER_IDS.CODEX || activeAgentIdRef.current === null) {
+  if (activeAgentIdRef.current === null) {
     return;
   }
   const agent = agents.get(activeAgentIdRef.current);
   if (!agent || agent.provider !== providerId || !agent.workspacePath || agent.claimedJsonlFile) {
+    return;
+  }
+
+  if (providerId === AGENT_PROVIDER_IDS.COPILOT) {
+    const candidate = findBestCopilotCandidate(
+      files
+        .map((file) => getCopilotSessionInfo(file))
+        .filter((result): result is { kind: 'ok'; info: CopilotSessionInfo } => result.kind === 'ok')
+        .map((result) => result.info),
+      agent,
+      claimedJsonlFiles,
+      true,
+    );
+    if (!candidate) {
+      return;
+    }
+
+    reassignAgentToFile(
+      agent.id,
+      candidate.filePath,
+      agents,
+      claimedJsonlFiles,
+      claimedCodexSessions,
+      fileWatchers,
+      pollingTimers,
+      waitingTimers,
+      permissionTimers,
+      webview,
+      persistAgents,
+      candidate,
+    );
+    agent.projectDir = projectDir;
+    return;
+  }
+
+  if (providerId !== AGENT_PROVIDER_IDS.CODEX) {
     return;
   }
 
@@ -459,6 +599,106 @@ function scanForNewJsonlFiles(
   for (const file of files) {
     const normalizedFilePath = normalizeJsonlFilePath(file);
     if (knownJsonlFiles.has(normalizedFilePath)) {
+      continue;
+    }
+    if (providerId === AGENT_PROVIDER_IDS.COPILOT) {
+      const sessionInfoResult = getCopilotSessionInfo(file);
+      if (sessionInfoResult.kind !== 'ok') {
+        continue;
+      }
+      const sessionInfo = sessionInfoResult.info;
+      if (knownJsonlFiles.has(sessionInfo.normalizedFilePath)) {
+        continue;
+      }
+      if (claimedJsonlFiles.has(sessionInfo.normalizedFilePath)) {
+        knownJsonlFiles.add(sessionInfo.normalizedFilePath);
+        continue;
+      }
+      if (activeAgent?.provider === providerId && activeAgent.workspacePath) {
+        if (!matchesWorkspace(activeAgent.workspacePath, sessionInfo.cwd)) {
+          continue;
+        }
+        if (
+          !activeAgent.claimedJsonlFile &&
+          activeAgent.launchTimeMs !== undefined &&
+          sessionInfo.mtimeMs < activeAgent.launchTimeMs - CODEX_SESSION_MATCH_WINDOW_MS
+        ) {
+          continue;
+        }
+      } else if (workspacePaths.length > 0 && !matchesAnyWorkspacePath(workspacePaths, sessionInfo.cwd)) {
+        continue;
+      }
+
+      knownJsonlFiles.add(sessionInfo.normalizedFilePath);
+      if (
+        activeAgentIdRef.current !== null &&
+        activeAgent?.provider === providerId &&
+        activeAgent.workspacePath &&
+        matchesWorkspace(activeAgent.workspacePath, sessionInfo.cwd)
+      ) {
+        reassignAgentToFile(
+          activeAgentIdRef.current,
+          sessionInfo.filePath,
+          agents,
+          claimedJsonlFiles,
+          claimedCodexSessions,
+          fileWatchers,
+          pollingTimers,
+          waitingTimers,
+          permissionTimers,
+          webview,
+          persistAgents,
+          sessionInfo,
+        );
+        continue;
+      }
+
+      const existingCopilotAgent = [...agents.values()].find(
+        (agent) =>
+          agent.provider === AGENT_PROVIDER_IDS.COPILOT &&
+          agent.workspacePath &&
+          matchesWorkspace(agent.workspacePath, sessionInfo.cwd) &&
+          agent.claimedJsonlFile !== sessionInfo.normalizedFilePath,
+      );
+      if (existingCopilotAgent) {
+        reassignAgentToFile(
+          existingCopilotAgent.id,
+          sessionInfo.filePath,
+          agents,
+          claimedJsonlFiles,
+          claimedCodexSessions,
+          fileWatchers,
+          pollingTimers,
+          waitingTimers,
+          permissionTimers,
+          webview,
+          persistAgents,
+          sessionInfo,
+        );
+        continue;
+      }
+
+      const activeTerminal = vscode.window.activeTerminal;
+      if (activeTerminal && !terminalIsOwned(activeTerminal, agents)) {
+        adoptTerminalForFile(
+          activeTerminal,
+          providerId,
+          sessionInfo.filePath,
+          projectDir,
+          nextAgentIdRef,
+          agents,
+          activeAgentIdRef,
+          claimedJsonlFiles,
+          claimedCodexSessions,
+          fileWatchers,
+          pollingTimers,
+          waitingTimers,
+          permissionTimers,
+          webview,
+          persistAgents,
+          sessionInfo,
+        );
+      }
       continue;
     }
 
@@ -626,8 +866,8 @@ function scanForNewJsonlFiles(
   }
 }
 
-function needsCodexSessionAttachment(agent: AgentState): boolean {
-  if (agent.provider !== AGENT_PROVIDER_IDS.CODEX || !agent.workspacePath) {
+function needsProviderSessionAttachment(agent: AgentState, providerId: AgentProviderId): boolean {
+  if (agent.provider !== providerId || !agent.workspacePath) {
     return false;
   }
   if (!agent.jsonlFile || !agent.claimedJsonlFile) {
@@ -637,7 +877,7 @@ function needsCodexSessionAttachment(agent: AgentState): boolean {
 }
 
 function listJsonlFiles(providerId: AgentProviderId, projectDir: string): string[] {
-  if (providerId === AGENT_PROVIDER_IDS.CODEX) {
+  if (providerId === AGENT_PROVIDER_IDS.CODEX || providerId === AGENT_PROVIDER_IDS.COPILOT) {
     const deduped = new Map<string, string>();
     for (const file of listJsonlFilesRecursive(projectDir)) {
       const normalized = normalizeJsonlFilePath(file);
@@ -703,6 +943,37 @@ function getCodexSessionInfo(filePath: string): CodexSessionInfoResult {
   }
 }
 
+function getCopilotSessionInfo(filePath: string): CopilotSessionInfoResult {
+	if (path.basename(filePath).toLowerCase() !== 'events.jsonl') {
+		return { kind: 'invalid_events_path' };
+	}
+	const sessionDir = path.dirname(filePath);
+	const workspacePath = path.join(sessionDir, 'workspace.yaml');
+	if (!safePathExists(workspacePath)) {
+		return { kind: 'missing_workspace_yaml' };
+	}
+	try {
+		const workspaceYaml = fs.readFileSync(workspacePath, 'utf-8');
+		const parsed = parseCopilotWorkspaceYaml(workspaceYaml);
+		if (!parsed.cwd || !parsed.id) {
+			return { kind: 'missing_fields' };
+		}
+		return {
+			kind: 'ok',
+			info: {
+				filePath,
+				normalizedFilePath: normalizeJsonlFilePath(filePath),
+				sessionId: parsed.id,
+				cwd: parsed.cwd,
+				gitRoot: parsed.gitRoot,
+				mtimeMs: safeStatMtimeMs(filePath),
+			},
+		};
+	} catch {
+		return { kind: 'read_error' };
+	}
+}
+
 function describeCodexSessionInfoFailure(kind: CodexSessionInfoResult['kind']): string {
   switch (kind) {
     case 'incomplete':
@@ -720,6 +991,21 @@ function describeCodexSessionInfoFailure(kind: CodexSessionInfoResult['kind']): 
     case 'ok':
       return 'ok';
   }
+}
+
+function describeCopilotSessionInfoFailure(kind: CopilotSessionInfoResult['kind']): string {
+	switch (kind) {
+		case 'missing_workspace_yaml':
+			return 'missing workspace.yaml';
+		case 'missing_fields':
+			return 'workspace.yaml missing required fields';
+		case 'invalid_events_path':
+			return 'not an events.jsonl file';
+		case 'read_error':
+			return 'read error';
+		case 'ok':
+			return 'ok';
+	}
 }
 
 function findBestCodexCandidate(
@@ -752,6 +1038,31 @@ function findBestCodexCandidate(
   return null;
 }
 
+function findBestCopilotCandidate(
+	sessionInfos: CopilotSessionInfo[],
+	agent: AgentState,
+	claimedJsonlFiles: Map<string, number>,
+	requireRecent: boolean,
+): CopilotSessionInfo | null {
+	if (!agent.workspacePath) {
+		return null;
+	}
+
+	const candidates = sessionInfos
+		.filter(info => matchesWorkspace(agent.workspacePath ?? '', info.cwd))
+		.filter(info => !claimedJsonlFiles.has(info.normalizedFilePath))
+		.sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+	if (!requireRecent || agent.launchTimeMs === undefined) {
+		return candidates[0] ?? null;
+	}
+
+	const recentCandidates = candidates.filter(
+		info => info.mtimeMs >= agent.launchTimeMs! - CODEX_SESSION_MATCH_WINDOW_MS,
+	);
+	return recentCandidates[0] ?? null;
+}
+
 function matchesWorkspace(left: string, right: string): boolean {
   const normalizedLeft = normalizeJsonlFilePath(left);
   const normalizedRight = normalizeJsonlFilePath(right);
@@ -769,6 +1080,26 @@ function matchesWorkspace(left: string, right: string): boolean {
 
 function matchesAnyWorkspacePath(workspacePaths: string[], sessionCwd: string): boolean {
   return workspacePaths.some((workspacePath) => matchesWorkspace(workspacePath, sessionCwd));
+}
+
+function parseCopilotWorkspaceYaml(rawYaml: string): { id?: string; cwd?: string; gitRoot?: string } {
+	const parsed: { id?: string; cwd?: string; gitRoot?: string } = {};
+	for (const line of rawYaml.split(/\r?\n/)) {
+		const match = line.match(/^([a-z_]+):\s*(.+?)\s*$/i);
+		if (!match) {
+			continue;
+		}
+		const key = match[1].toLowerCase();
+		const value = match[2];
+		if (key === 'id') {
+			parsed.id = value;
+		} else if (key === 'cwd') {
+			parsed.cwd = value;
+		} else if (key === 'git_root') {
+			parsed.gitRoot = value;
+		}
+	}
+	return parsed;
 }
 
 function logCodexNoMatchReason(
@@ -819,7 +1150,7 @@ function safePathExists(filePath: string): boolean {
 
 function applySessionClaim(
   agent: AgentState,
-  sessionInfo: CodexSessionInfo | undefined,
+  sessionInfo: CodexSessionInfo | CopilotSessionInfo | undefined,
   claimedJsonlFiles: Map<string, number>,
   claimedCodexSessions: Map<string, number>,
 ): void {
@@ -833,10 +1164,13 @@ function applySessionClaim(
     return;
   }
   agent.workspacePath = sessionInfo.cwd;
-  agent.codexSessionId = sessionInfo.sessionId;
+  agent.codexSessionId =
+    'sessionId' in sessionInfo && agent.provider === AGENT_PROVIDER_IDS.CODEX ? sessionInfo.sessionId : undefined;
   agent.claimedJsonlFile = sessionInfo.normalizedFilePath;
   claimedJsonlFiles.set(sessionInfo.normalizedFilePath, agent.id);
-  claimedCodexSessions.set(sessionInfo.sessionId, agent.id);
+  if (agent.codexSessionId) {
+    claimedCodexSessions.set(agent.codexSessionId, agent.id);
+  }
 }
 
 function adoptTerminalForFile(
@@ -855,7 +1189,7 @@ function adoptTerminalForFile(
   permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
   webview: vscode.Webview | undefined,
   persistAgents: () => void,
-  sessionInfo?: CodexSessionInfo,
+  sessionInfo?: CodexSessionInfo | CopilotSessionInfo,
 ): void {
   const id = nextAgentIdRef.current++;
   const agent: AgentState = {
@@ -863,7 +1197,7 @@ function adoptTerminalForFile(
     provider,
     terminalRef: terminal,
     workspacePath: sessionInfo?.cwd,
-    codexSessionId: sessionInfo?.sessionId,
+    codexSessionId: provider === AGENT_PROVIDER_IDS.CODEX ? sessionInfo?.sessionId : undefined,
     claimedJsonlFile: sessionInfo?.normalizedFilePath,
     projectDir,
     jsonlFile,
@@ -875,9 +1209,14 @@ function adoptTerminalForFile(
     activeSubagentToolIds: new Map(),
     activeSubagentToolNames: new Map(),
     isWaiting: false,
+    currentStatus: 'none',
     permissionSent: false,
     hadToolsInTurn: false,
     codexHasMeaningfulActivity: false,
+    copilotActiveParentToolIds: new Set(),
+    copilotActiveChildToolIdsByParent: new Map(),
+    copilotSubagents: new Map(),
+    copilotLastAssistantActivityAt: 0,
   };
 
   applySessionClaim(agent, sessionInfo, claimedJsonlFiles, claimedCodexSessions);
@@ -902,7 +1241,7 @@ export function reassignAgentToFile(
   permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
   webview: vscode.Webview | undefined,
   persistAgents: () => void,
-  sessionInfo?: CodexSessionInfo,
+  sessionInfo?: CodexSessionInfo | CopilotSessionInfo,
 ): void {
   const agent = agents.get(agentId);
   if (!agent) {
@@ -929,7 +1268,9 @@ export function reassignAgentToFile(
     agentId,
     permissionTimers,
     webview,
-    agent.provider === AGENT_PROVIDER_IDS.CODEX ? { status: 'none' } : undefined,
+    agent.provider === AGENT_PROVIDER_IDS.CODEX || agent.provider === AGENT_PROVIDER_IDS.COPILOT
+      ? { status: 'none' }
+      : undefined,
   );
 
   agent.jsonlFile = newFilePath;

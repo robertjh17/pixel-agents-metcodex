@@ -268,7 +268,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 
         sendExistingAgents(this.agents, this.context, this.webview);
       } else if (message.type === 'openSessionsFolder') {
-        for (const providerId of [AGENT_PROVIDER_IDS.CLAUDE, AGENT_PROVIDER_IDS.CODEX]) {
+        for (const providerId of [AGENT_PROVIDER_IDS.CLAUDE, AGENT_PROVIDER_IDS.CODEX, AGENT_PROVIDER_IDS.COPILOT]) {
           for (const projectDir of getProjectDirPaths(providerId)) {
             if (fs.existsSync(projectDir)) {
               void vscode.env.openExternal(vscode.Uri.file(projectDir));

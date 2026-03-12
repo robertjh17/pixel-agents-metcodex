@@ -20,9 +20,16 @@ export interface AgentState {
   activeSubagentToolIds: Map<string, Set<string>>;
   activeSubagentToolNames: Map<string, Map<string, string>>;
   isWaiting: boolean;
+  currentStatus: 'none' | 'active' | 'waiting' | 'needsInput';
   permissionSent: boolean;
   hadToolsInTurn: boolean;
   codexHasMeaningfulActivity: boolean;
+  copilotActiveParentToolIds: Set<string>;
+  copilotActiveChildToolIdsByParent: Map<string, Set<string>>;
+  copilotSubagents: Map<string, { label: string; completed: boolean }>;
+  copilotLastAssistantActivityAt: number;
+  copilotPendingTurnEndTimer?: ReturnType<typeof setTimeout>;
+  copilotNarrationStatus?: string;
   folderName?: string;
 }
 

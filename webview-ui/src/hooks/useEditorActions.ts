@@ -27,7 +27,7 @@ import type {
 import { EditTool, TileType } from '../office/types.js';
 import { vscode } from '../vscodeApi.js';
 
-export type AgentProviderId = 'claude' | 'codex';
+export type AgentProviderId = 'claude' | 'codex' | 'copilot';
 
 export interface EditorActions {
   isEditMode: boolean;
