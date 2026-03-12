@@ -232,9 +232,14 @@ export function useExtensionMessages(
           return { ...prev, [id]: status }
         })
         os.setAgentActive(id, status === 'active')
+        if (status !== 'needsInput') {
+          os.clearPermissionBubble(id)
+        }
         if (status === 'waiting') {
           os.showWaitingBubble(id)
           playDoneSound()
+        } else if (status === 'needsInput') {
+          os.showPermissionBubble(id)
         }
       } else if (msg.type === 'agentToolPermission') {
         const id = msg.id as number

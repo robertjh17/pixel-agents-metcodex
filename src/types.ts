@@ -19,9 +19,16 @@ export interface AgentState {
 	activeSubagentToolIds: Map<string, Set<string>>; // parentToolId -> active sub-tool IDs
 	activeSubagentToolNames: Map<string, Map<string, string>>; // parentToolId -> (subToolId -> toolName)
 	isWaiting: boolean;
+	currentStatus: 'none' | 'active' | 'waiting' | 'needsInput';
 	permissionSent: boolean;
 	hadToolsInTurn: boolean;
 	codexHasMeaningfulActivity: boolean;
+	copilotActiveParentToolIds: Set<string>;
+	copilotActiveChildToolIdsByParent: Map<string, Set<string>>;
+	copilotSubagents: Map<string, { label: string; completed: boolean }>;
+	copilotLastAssistantActivityAt: number;
+	copilotPendingTurnEndTimer?: ReturnType<typeof setTimeout>;
+	copilotNarrationStatus?: string;
 	/** Workspace folder name (only set for multi-root workspaces) */
 	folderName?: string;
 }

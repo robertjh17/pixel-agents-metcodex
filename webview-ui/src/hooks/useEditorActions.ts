@@ -11,7 +11,7 @@ import { defaultZoom } from '../office/toolUtils.js'
 import { vscode } from '../vscodeApi.js'
 import { LAYOUT_SAVE_DEBOUNCE_MS, ZOOM_MIN, ZOOM_MAX } from '../constants.js'
 
-export type AgentProviderId = 'claude' | 'codex'
+export type AgentProviderId = 'claude' | 'codex' | 'copilot'
 
 export interface EditorActions {
   isEditMode: boolean

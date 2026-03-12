@@ -15,6 +15,7 @@ interface BottomToolbarProps {
 const AGENT_PROVIDER_OPTIONS: Array<{ id: AgentProviderId; label: string }> = [
   { id: 'claude', label: 'Claude' },
   { id: 'codex', label: 'Codex' },
+  { id: 'copilot', label: 'Copilot' },
 ]
 
 const panelStyle: React.CSSProperties = {

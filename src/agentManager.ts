@@ -39,6 +39,11 @@ export function getProjectDirPaths(provider: AgentProviderId, cwd?: string): str
 		console.log(`[Pixel Agents] ${provider} session dirs: ${workspacePath ?? 'none'} -> ${JSON.stringify(allDirs)}`);
 		return allDirs;
 	}
+	if (provider === AGENT_PROVIDER_IDS.COPILOT) {
+		const sessionDirs = resolveSessionRootDirs(provider).map(rootDir => path.join(rootDir, 'session-state'));
+		console.log(`[Pixel Agents] ${provider} session dirs: ${workspacePath ?? 'none'} -> ${JSON.stringify(sessionDirs)}`);
+		return sessionDirs;
+	}
 	if (!workspacePath) {
 		return [];
 	}
@@ -117,9 +122,14 @@ export async function launchNewTerminal(
 		activeSubagentToolIds: new Map(),
 		activeSubagentToolNames: new Map(),
 		isWaiting: false,
+		currentStatus: 'none',
 		permissionSent: false,
 		hadToolsInTurn: false,
 		codexHasMeaningfulActivity: false,
+		copilotActiveParentToolIds: new Set(),
+		copilotActiveChildToolIdsByParent: new Map(),
+		copilotSubagents: new Map(),
+		copilotLastAssistantActivityAt: 0,
 		folderName,
 	};
 
@@ -295,9 +305,14 @@ export function restoreAgents(
 			activeSubagentToolIds: new Map(),
 			activeSubagentToolNames: new Map(),
 			isWaiting: false,
+			currentStatus: 'none',
 			permissionSent: false,
 			hadToolsInTurn: false,
 			codexHasMeaningfulActivity: false,
+			copilotActiveParentToolIds: new Set(),
+			copilotActiveChildToolIdsByParent: new Map(),
+			copilotSubagents: new Map(),
+			copilotLastAssistantActivityAt: 0,
 			folderName: p.folderName,
 		};
 
@@ -431,11 +446,11 @@ export function sendCurrentAgentStatuses(
 				status,
 			});
 		}
-		if (agent.isWaiting) {
+		if (agent.currentStatus === 'waiting' || agent.currentStatus === 'needsInput') {
 			webview.postMessage({
 				type: 'agentStatus',
 				id: agentId,
-				status: 'waiting',
+				status: agent.currentStatus,
 			});
 		}
 	}

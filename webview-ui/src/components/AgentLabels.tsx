@@ -68,11 +68,12 @@ export function AgentLabels({
 
         const status = agentStatuses[id]
         const isWaiting = status === 'waiting'
+        const needsInput = status === 'needsInput'
         const isActive = ch.isActive
         const isSub = ch.isSubagent
 
         let dotColor = 'transparent'
-        if (isWaiting) {
+        if (isWaiting || needsInput) {
           dotColor = 'var(--vscode-charts-yellow, #cca700)'
         } else if (isActive) {
           dotColor = 'var(--vscode-charts-blue, #3794ff)'
@@ -97,7 +98,7 @@ export function AgentLabels({
           >
             {dotColor !== 'transparent' && (
               <span
-                className={isActive && !isWaiting ? 'pixel-agents-pulse' : undefined}
+                className={isActive && !isWaiting && !needsInput ? 'pixel-agents-pulse' : undefined}
                 style={{
                   width: 6,
                   height: 6,

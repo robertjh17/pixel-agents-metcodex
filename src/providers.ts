@@ -5,6 +5,7 @@ import * as path from 'path';
 export const AGENT_PROVIDER_IDS = {
 	CLAUDE: 'claude',
 	CODEX: 'codex',
+	COPILOT: 'copilot',
 } as const;
 
 export type AgentProviderId = typeof AGENT_PROVIDER_IDS[keyof typeof AGENT_PROVIDER_IDS];
@@ -35,6 +36,14 @@ export const AGENT_PROVIDERS: Record<AgentProviderId, AgentProvider> = {
 		supportsSessionId: false,
 		sessionRootDirNames: ['.codex', '.Codex'],
 	},
+	[AGENT_PROVIDER_IDS.COPILOT]: {
+		id: AGENT_PROVIDER_IDS.COPILOT,
+		label: 'Copilot',
+		terminalNamePrefix: 'Copilot',
+		command: 'copilot',
+		supportsSessionId: false,
+		sessionRootDirNames: ['.copilot'],
+	},
 };
 
 export function getAgentProvider(providerId: AgentProviderId): AgentProvider {
@@ -42,7 +51,9 @@ export function getAgentProvider(providerId: AgentProviderId): AgentProvider {
 }
 
 export function isAgentProviderId(value: unknown): value is AgentProviderId {
-	return value === AGENT_PROVIDER_IDS.CLAUDE || value === AGENT_PROVIDER_IDS.CODEX;
+	return value === AGENT_PROVIDER_IDS.CLAUDE
+		|| value === AGENT_PROVIDER_IDS.CODEX
+		|| value === AGENT_PROVIDER_IDS.COPILOT;
 }
 
 export function resolveSessionRootDirs(providerId: AgentProviderId): string[] {

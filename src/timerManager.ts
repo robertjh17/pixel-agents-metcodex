@@ -15,16 +15,27 @@ export function clearAgentActivity(
 	agent.activeToolNames.clear();
 	agent.activeSubagentToolIds.clear();
 	agent.activeSubagentToolNames.clear();
+	agent.copilotActiveParentToolIds.clear();
+	agent.copilotActiveChildToolIdsByParent.clear();
+	agent.copilotSubagents.clear();
+	if (agent.copilotPendingTurnEndTimer) {
+		clearTimeout(agent.copilotPendingTurnEndTimer);
+		agent.copilotPendingTurnEndTimer = undefined;
+	}
+	agent.copilotNarrationStatus = undefined;
 	agent.isWaiting = false;
+	agent.currentStatus = 'none';
 	agent.permissionSent = false;
 	cancelPermissionTimer(agentId, permissionTimers);
 	webview?.postMessage({ type: 'agentToolsClear', id: agentId });
 	const status = options?.status ?? 'active';
 	if (status === 'active') {
 		console.log(`[Pixel Agents] Agent ${agentId}: sending agentStatus active`);
+		agent.currentStatus = 'active';
 		webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'active' });
 	} else if (status === 'waiting') {
 		agent.isWaiting = true;
+		agent.currentStatus = 'waiting';
 		webview?.postMessage({ type: 'agentStatus', id: agentId, status: 'waiting' });
 	}
 }
@@ -53,6 +64,7 @@ export function startWaitingTimer(
 		const agent = agents.get(agentId);
 		if (agent) {
 			agent.isWaiting = true;
+			agent.currentStatus = 'waiting';
 		}
 		webview?.postMessage({
 			type: 'agentStatus',
